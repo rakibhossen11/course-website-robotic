@@ -11,14 +11,12 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const { user, logout, loading } = useAuth();
-  console.log(user);
+  // console.log(user);
 
   const navigation = [
-    { name: 'Home', href: '/' },
-    { name: 'Courses', href: '/courses' },
-    { name: 'About', href: '/about' },
-    { name: 'Blog', href: '/blog' },
-    { name: 'Contact', href: '/contact' },
+    { name: 'Course Details', href: '/' },
+    // { name: 'Blog', href: '' },
+    { name: 'My Classes', href: '/student' },
   ];
 
   const handleLogout = async () => {

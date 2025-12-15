@@ -116,7 +116,7 @@ export default function Footer() {
         </div>
 
         {/* Payment Methods */}
-        <div className="mt-12 pt-8 border-t border-gray-800 text-center">
+        {/* <div className="mt-12 pt-8 border-t border-gray-800 text-center">
           <p className="text-sm mb-4">We Accept</p>
           <div className="flex justify-center gap-8 flex-wrap">
             <span className="text-pink-500 font-bold text-xl">bKash</span>
@@ -125,7 +125,7 @@ export default function Footer() {
             <span className="text-blue-500 font-bold text-xl">Visa</span>
             <span className="text-red-600 font-bold text-xl">Mastercard</span>
           </div>
-        </div>
+        </div> */}
 
         {/* Copyright */}
         <div className="mt-8 pt-8 border-t border-gray-800 text-center text-sm">

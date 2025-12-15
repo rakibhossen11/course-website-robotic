@@ -4,11 +4,11 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import Link from 'next/link';
 
 export default async function StudentDashboard() {
-  const session = await getServerSession(authOptions);
+  // const session = await getServerSession(authOptions);
   
-  if (!session) {
-    redirect('/login');
-  }
+  // if (!session) {
+  //   redirect('/login');
+  // }
 
   // Mock enrolled courses
   const enrolledCourses = [
@@ -30,7 +30,7 @@ export default async function StudentDashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Welcome back, {session.user?.name}!</h1>
+      {/* <h1 className="text-3xl font-bold mb-8">Welcome back, {session.user?.name}!</h1> */}
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Enrolled Courses */}

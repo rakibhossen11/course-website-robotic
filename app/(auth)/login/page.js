@@ -1,37 +1,68 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/components/FirebaseAuthProvider';
+import { useAuth } from '@/components/AuthContext'; // Adjust path if needed
 
 export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
   const router = useRouter();
-  const { googleSignIn } = useAuth();
+  const { googleSignIn, user, loading: authLoading } = useAuth();
+
+  // ✅ Redirect to dashboard ONLY when user is logged in and auth is not loading
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/');
+    }
+  }, [user, authLoading, router]);
 
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
       setError('');
-      
+
       const result = await googleSignIn();
-      
+      console.log(result);
+
       if (result.success) {
-        // Redirect to dashboard or home page
-        router.push('/dashboard');
+        // Do NOT redirect here manually
+        // Firebase will trigger onAuthStateChanged → user state updates → useEffect redirects
+        console.log('Google login successful! Redirecting soon...');
       } else {
-        setError(result.error || 'Failed to sign in with Google');
+        let errorMsg = result?.error || 'Failed to sign in with Google';
+
+        if (result?.code === 'auth/popup-blocked') {
+          errorMsg = 'Popup blocked. Please allow popups and try again.';
+        } else if (result?.code === 'auth/cancelled-popup-request') {
+          errorMsg = 'Login cancelled.';
+        }
+
+        setError(errorMsg);
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('An unexpected error occurred');
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  // Show redirecting screen when user is authenticated
+  // if (!authLoading && user) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gray-50">
+  //       <div className="text-center">
+  //         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+  //         <p className="mt-4 text-gray-600">Login successful! Redirecting to dashboard...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+
+  // Show login form when not logged in
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -46,14 +77,14 @@ export default function LoginPage() {
             </Link>
           </p>
         </div>
-        
+
         <div className="mt-8">
           <button
             onClick={handleGoogleSignIn}
-            disabled={loading}
-            className={`w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium ${
-              loading 
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+            disabled={loading || authLoading}
+            className={`w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium transition ${
+              loading || authLoading
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-white text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -66,7 +97,7 @@ export default function LoginPage() {
               <>
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                   <path
-                    fill="currentColor"
+                    fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   />
                   <path
@@ -89,8 +120,19 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
             {error}
+          </div>
+        )}
+
+        {error.includes('popup') && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded text-sm">
+            <p className="font-medium">Popup blocked?</p>
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li>Allow popups for this site in your browser</li>
+              <li>Try in Incognito mode</li>
+              <li>Disable ad blockers temporarily</li>
+            </ul>
           </div>
         )}
 

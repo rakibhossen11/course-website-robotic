@@ -15,7 +15,7 @@ const Navbar = () => {
   // Public navigation items (visible to everyone)
   const publicNavigation = [
     // { name: 'Home', href: '/' },
-    { name: 'Courses', href: '/courses' },
+    { name: 'Course-Details', href: '/course-Details' },
     // { name: 'Pricing', href: '/pricing' },
     // { name: 'About Us', href: '/about' },
     // { name: 'Contact', href: '/contact' },

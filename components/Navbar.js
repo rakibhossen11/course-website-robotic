@@ -11,18 +11,55 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const { user, logout, loading } = useAuth();
-  // console.log(user);
 
-  const navigation = [
-    { name: 'Course Details', href: '/' },
-    // { name: 'Blog', href: '' },
-    { name: 'My Classes', href: '/student' },
+  // Public navigation items (visible to everyone)
+  const publicNavigation = [
+    // { name: 'Home', href: '/' },
+    { name: 'Courses', href: '/courses' },
+    // { name: 'Pricing', href: '/pricing' },
+    // { name: 'About Us', href: '/about' },
+    // { name: 'Contact', href: '/contact' },
   ];
+
+  // Logged-in user navigation items (visible only when user is logged in)
+  const userNavigation = [
+    { name: 'Dashboard', href: '/dashboard' },
+    { name: 'My Classes', href: '/student' },
+    // { name: 'My Courses', href: '/my-courses' },
+    // { name: 'Progress', href: '/progress' },
+    // { name: 'Assignments', href: '/assignments' },
+  ];
+
+  // Admin navigation items (if you have admin role)
+  const adminNavigation = [
+    { name: 'Admin Panel', href: '/admin' },
+    { name: 'Manage Courses', href: '/admin/courses' },
+    { name: 'Users', href: '/admin/users' },
+    { name: 'Analytics', href: '/admin/analytics' },
+  ];
+
+  // Combine navigation based on user status
+  const getNavigationItems = () => {
+    if (user) {
+      // Check if user is admin
+      const isAdmin = user.role === 'admin' || user.isAdmin;
+      
+      return [
+        ...publicNavigation,
+        ...userNavigation,
+        ...(isAdmin ? adminNavigation : [])
+      ];
+    }
+    return publicNavigation;
+  };
 
   const handleLogout = async () => {
     await logout();
     setUserDropdownOpen(false);
   };
+
+  // Check if user is admin
+  const isAdmin = user && (user.role === 'admin' || user.isAdmin);
 
   // Show loading state briefly
   if (loading) {
@@ -31,7 +68,6 @@ const Navbar = () => {
         <nav className="fixed top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
-              {/* Logo */}
               <div className="flex-shrink-0">
                 <Link href="/" className="text-xl font-bold text-gray-900">
                   LearningBD
@@ -62,11 +98,11 @@ const Navbar = () => {
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               <div className="flex space-x-8">
-                {navigation.map((item) => (
+                {getNavigationItems().map((item) => (
                   <Link
                     key={item.name}
                     href={item.href}
-                    className="text-gray-700 hover:text-blue-600 font-medium transition-colors duration-200"
+                    className="text-black hover:text-blue-600 font-bold transition-colors duration-200"
                   >
                     {item.name}
                   </Link>
@@ -99,7 +135,9 @@ const Navbar = () => {
                     ) : (
                       <UserCircleIcon className="h-8 w-8 text-gray-400" />
                     )}
-                    <span className="hidden lg:inline">{user.displayName?.split(' ')[0] || user.email}</span>
+                    <span className="hidden lg:inline">
+                      {user.displayName ? user.displayName.split(' ')[0] : user.email}
+                    </span>
                     <ChevronDownIcon className="h-4 w-4 text-gray-500" />
                   </button>
 
@@ -115,8 +153,30 @@ const Navbar = () => {
                       {/* Dropdown */}
                       <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50 py-1">
                         <div className="px-4 py-2 border-b border-gray-100">
-                          <p className="text-sm font-medium text-gray-900 truncate">{user.displayName || 'User'}</p>
-                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                          <div className="flex items-center">
+                            {user.photoURL ? (
+                              <div className="relative h-8 w-8 rounded-full overflow-hidden border border-gray-300 mr-2">
+                                <Image
+                                  src={user.photoURL}
+                                  alt={user.displayName || 'User'}
+                                  width={32}
+                                  height={32}
+                                  className="object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <UserCircleIcon className="h-8 w-8 text-gray-400 mr-2" />
+                            )}
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {user.displayName || 'User'}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                              {isAdmin && (
+                                <span className="text-xs text-red-600 font-semibold">Admin</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         <Link
                           href="/dashboard"
@@ -139,6 +199,15 @@ const Navbar = () => {
                         >
                           My Courses
                         </Link>
+                        {isAdmin && (
+                          <Link
+                            href="/admin"
+                            className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 border-t border-gray-100"
+                            onClick={() => setUserDropdownOpen(false)}
+                          >
+                            Admin Panel
+                          </Link>
+                        )}
                         <button
                           onClick={handleLogout}
                           className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 border-t border-gray-100"
@@ -236,15 +305,20 @@ const Navbar = () => {
                     <UserCircleIcon className="h-10 w-10 text-gray-400" />
                   )}
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{user.displayName || 'User'}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {user.displayName || 'User'}
+                    </p>
                     <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                    {isAdmin && (
+                      <span className="text-xs text-red-600 font-semibold">Admin</span>
+                    )}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Navigation Links */}
-            {navigation.map((item) => (
+            {/* Public Navigation Links */}
+            {publicNavigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
@@ -255,6 +329,46 @@ const Navbar = () => {
               </Link>
             ))}
 
+            {/* User-specific Navigation Links */}
+            {user && (
+              <>
+                <div className="pt-4 border-t border-gray-200">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    My Account
+                  </h3>
+                  {userNavigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className="block text-base font-medium text-gray-700 hover:text-blue-600 py-2"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Admin Navigation Links */}
+            {isAdmin && (
+              <div className="pt-4 border-t border-gray-200">
+                <h3 className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2">
+                  Admin
+                </h3>
+                {adminNavigation.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className="block text-base font-medium text-red-600 hover:text-red-700 py-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
+            )}
+
             <div className="pt-4 border-t border-gray-200">
               <button className="w-full flex items-center justify-center p-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-100 mb-2">
                 <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
@@ -263,13 +377,6 @@ const Navbar = () => {
               
               {user ? (
                 <>
-                  <Link
-                    href="/dashboard"
-                    className="block w-full text-left text-base font-medium text-gray-700 px-4 py-2 hover:bg-gray-50 rounded-md mb-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
                   <Link
                     href="/profile"
                     className="block w-full text-left text-base font-medium text-gray-700 px-4 py-2 hover:bg-gray-50 rounded-md mb-2"

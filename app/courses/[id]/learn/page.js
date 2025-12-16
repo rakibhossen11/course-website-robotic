@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import YouTubePlayer from '@/components/YouTubePlayer';
 import Link from 'next/link';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { getSession } from 'next-auth/react';
 
 // Course video data (replace with database fetch)
@@ -141,6 +142,7 @@ export default function CourseLearnPage() {
   }
 
   return (
+    <ProtectedRoute>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
@@ -340,5 +342,6 @@ export default function CourseLearnPage() {
         </div>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }

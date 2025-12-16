@@ -1,19 +1,21 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthContext';
-
-// export default async function DashboardPage() {
-//   return(
-//     <>
-//     <h1>DashboardPage</h1>
-//     </>
-//   );
-// }
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
   console.log(user);
+
+  // useEffect(() => {
+  //     if (!user) {
+  //       router.replace('/login');
+  //     }
+  //   }, [user]);
 
   // Mock enrolled courses
   const enrolledCourses = [
@@ -30,6 +32,7 @@ export default function DashboardPage() {
   ];
 
   return (
+    <ProtectedRoute>
     <div className="space-y-8">
       {/* Welcome Header */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl p-6">
@@ -120,5 +123,6 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }

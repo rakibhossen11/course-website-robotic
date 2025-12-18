@@ -1,26 +1,25 @@
-import { connectToDatabase } from '@/lib/mongodb';
+import connectToDatabase from '@/lib/mongoose';
+import Enrollment from '@/models/Enrollment';
 
 export async function GET(request) {
   try {
+    await connectToDatabase();
+    
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
-
-    const { db } = await connectToDatabase();
-
-    // Get pending enrollments
-    const enrollments = await db.collection('enrollments')
-      .find({ status: 'pending' })
+    
+    // Get pending enrollments with pagination
+    const enrollments = await Enrollment.find({ status: 'pending' })
       .sort({ enrolledAt: -1 })
       .skip(skip)
       .limit(limit)
-      .toArray();
-
+      .lean();
+    
     // Get total count
-    const total = await db.collection('enrollments')
-      .countDocuments({ status: 'pending' });
-
+    const total = await Enrollment.countDocuments({ status: 'pending' });
+    
     return Response.json({
       success: true,
       enrollments,
@@ -31,6 +30,7 @@ export async function GET(request) {
         pages: Math.ceil(total / limit)
       }
     });
+    
   } catch (error) {
     console.error('Error fetching pending enrollments:', error);
     return Response.json({

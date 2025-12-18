@@ -1,69 +1,93 @@
 import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
-import { sendEmail } from '@/lib/email';
+import Enrollment from '@/models/Enrollment';
+import Course from '@/models/Course';
 
 export async function POST(request) {
   try {
     const enrollmentData = await request.json();
-    const { db } = await connectToDatabase();
-
+    
+    // Connect to database
+    await connectToDatabase();
+    
+    // Validate required fields
+    const requiredFields = ['userId', 'userEmail', 'courseId', 'transactionId', 'phoneNumber', 'paymentProof'];
+    for (const field of requiredFields) {
+      if (!enrollmentData[field]) {
+        return Response.json({
+          success: false,
+          message: `Missing required field: ${field}`
+        }, { status: 400 });
+      }
+    }
+    
+    // Check if course exists
+    const course = await Course.findById(enrollmentData.courseId);
+    if (!course) {
+      return Response.json({
+        success: false,
+        message: 'Course not found'
+      }, { status: 404 });
+    }
+    
+    // Check if transaction ID already exists
+    const existingEnrollment = await Enrollment.findOne({ 
+      transactionId: enrollmentData.transactionId 
+    });
+    
+    if (existingEnrollment) {
+      return Response.json({
+        success: false,
+        message: 'Transaction ID already used. Please use a different transaction ID.'
+      }, { status: 400 });
+    }
+    
     // Generate unique enrollment ID
     const enrollmentId = `ENR${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
-
-    // Create enrollment document
-    const enrollment = {
+    
+    // Create enrollment
+    const enrollment = new Enrollment({
       _id: enrollmentId,
-      ...enrollmentData,
-      status: 'pending',
-      enrolledAt: new Date(),
-      lastUpdated: new Date()
-    };
-
-    // Insert into enrollments collection
-    const result = await db.collection('enrollments').insertOne(enrollment);
-
-    if (result.acknowledged) {
-      // Send confirmation email to user
-      await sendEmail({
-        to: enrollmentData.userEmail,
-        subject: `Enrollment Submitted - ${enrollmentData.courseName}`,
-        template: 'enrollment-submitted',
-        data: {
-          userName: enrollmentData.userName,
-          courseName: enrollmentData.courseName,
-          enrollmentId: enrollmentId,
-          amount: enrollmentData.finalAmount,
-          transactionId: enrollmentData.transactionId,
-          paymentMethod: enrollmentData.paymentMethod
-        }
-      });
-
-      // Send notification to admin
-      await sendEmail({
-        to: process.env.ADMIN_EMAIL || 'admin@learningbd.com',
-        subject: `New Enrollment Request - ${enrollmentData.courseName}`,
-        template: 'admin-enrollment-notification',
-        data: {
-          userName: enrollmentData.userName,
-          userEmail: enrollmentData.userEmail,
-          courseName: enrollmentData.courseName,
-          amount: enrollmentData.finalAmount,
-          transactionId: enrollmentData.transactionId,
-          enrollmentId: enrollmentId,
-          enrollmentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/enrollments/${enrollmentId}`
-        }
-      });
-
-      return Response.json({
-        success: true,
-        enrollmentId: enrollmentId,
-        message: 'Enrollment submitted successfully'
-      });
-    } else {
-      throw new Error('Failed to save enrollment');
-    }
+      userId: enrollmentData.userId,
+      userEmail: enrollmentData.userEmail,
+      userName: enrollmentData.userName || enrollmentData.userEmail.split('@')[0],
+      courseId: enrollmentData.courseId,
+      courseName: course.name,
+      coursePrice: course.price,
+      finalAmount: enrollmentData.finalAmount || course.price,
+      paymentMethod: enrollmentData.paymentMethod || 'bkash',
+      transactionId: enrollmentData.transactionId,
+      phoneNumber: enrollmentData.phoneNumber,
+      paymentProof: enrollmentData.paymentProof,
+      paymentProofType: enrollmentData.paymentProofType || 'image/png',
+      paymentProofName: enrollmentData.paymentProofName || 'payment_proof.png',
+      couponCode: enrollmentData.couponCode || null,
+      discountAmount: enrollmentData.discountAmount || 0,
+      status: 'pending'
+    });
+    
+    // Save enrollment
+    await enrollment.save();
+    
+    // TODO: Send email notification (implement email service)
+    console.log('Enrollment saved successfully:', enrollmentId);
+    
+    return Response.json({
+      success: true,
+      enrollmentId: enrollmentId,
+      message: 'Enrollment submitted successfully. Please wait for admin approval.'
+    });
+    
   } catch (error) {
     console.error('Error submitting enrollment:', error);
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return Response.json({
+        success: false,
+        message: 'Duplicate transaction ID or enrollment ID'
+      }, { status: 400 });
+    }
+    
     return Response.json({
       success: false,
       message: error.message || 'Failed to submit enrollment'

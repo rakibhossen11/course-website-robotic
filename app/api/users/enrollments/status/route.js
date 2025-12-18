@@ -1,55 +1,57 @@
 import { connectToDatabase } from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
+import Enrollment from '@/models/Enrollment';
+import UserCourseAccess from '@/models/UserCourseAccess';
 
 export async function GET(request) {
   try {
-    // Get user from session (you'll need to implement auth)
-    const session = await getServerSession();
-    if (!session || !session.user) {
+    await connectToDatabase();
+    
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    const enrollmentId = searchParams.get('enrollmentId');
+    
+    if (!userId) {
       return Response.json({
         success: false,
-        message: 'Unauthorized'
-      }, { status: 401 });
+        message: 'User ID is required'
+      }, { status: 400 });
     }
-
-    const userId = session.user.id;
-    const { searchParams } = new URL(request.url);
-    const enrollmentId = searchParams.get('enrollmentId');
-
-    const { db } = await connectToDatabase();
-
-    let query = { userId };
+    
+    // Build query
+    const query = { userId };
     if (enrollmentId) {
       query._id = enrollmentId;
     }
-
-    const enrollments = await db.collection('enrollments')
-      .find(query)
+    
+    // Get user's enrollments
+    const enrollments = await Enrollment.find(query)
       .sort({ enrolledAt: -1 })
-      .toArray();
-
-    // Check course access for approved enrollments
+      .lean();
+    
+    // Check course access for each enrollment
     const enrichedEnrollments = await Promise.all(
       enrollments.map(async (enrollment) => {
         if (enrollment.status === 'approved') {
-          const courseAccess = await db.collection('user_course_access')
-            .findOne({ 
-              userId: enrollment.userId, 
-              courseId: enrollment.courseId 
-            });
+          const courseAccess = await UserCourseAccess.findOne({
+            userId: enrollment.userId,
+            courseId: enrollment.courseId
+          });
+          
           return {
             ...enrollment,
-            hasAccess: !!courseAccess
+            hasAccess: !!courseAccess,
+            accessGrantedAt: courseAccess?.accessGrantedAt || null
           };
         }
         return enrollment;
       })
     );
-
+    
     return Response.json({
       success: true,
       enrollments: enrichedEnrollments
     });
+    
   } catch (error) {
     console.error('Error fetching user enrollments:', error);
     return Response.json({

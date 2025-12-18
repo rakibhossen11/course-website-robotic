@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/mongodb';
 import Course from '@/models/Course';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 
 export async function GET(request) {
   try {
-    await connectDB();
+    await connectToDatabase();
     
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
@@ -54,7 +54,7 @@ export async function POST(request) {
       );
     }
 
-    await connectDB();
+    await connectToDatabase();
     const data = await request.json();
 
     const course = await Course.create({

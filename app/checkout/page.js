@@ -11,11 +11,9 @@ import {
     LockClosedIcon,
     ArrowLeftIcon,
     XMarkIcon,
-    SparklesIcon,
     BookOpenIcon,
     EnvelopeIcon,
-    ExclamationTriangleIcon,
-    DocumentTextIcon
+    ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
@@ -33,8 +31,6 @@ export default function CourseCheckoutPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [transactionId, setTransactionId] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [paymentProof, setPaymentProof] = useState(null);
-    const [paymentProofPreview, setPaymentProofPreview] = useState('');
     const [showPaymentGuidelines, setShowPaymentGuidelines] = useState(false);
     const [formErrors, setFormErrors] = useState({});
 
@@ -117,41 +113,6 @@ export default function CourseCheckoutPage() {
         }
     };
 
-    // Handle file upload for payment proof
-    const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            // Validate file type and size
-            const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-            const maxSize = 5 * 1024 * 1024; // 5MB
-            
-            if (!validTypes.includes(file.type)) {
-                alert('Please upload only JPG, PNG, or PDF files');
-                return;
-            }
-            
-            if (file.size > maxSize) {
-                alert('File size should be less than 5MB');
-                return;
-            }
-            
-            setPaymentProof(file);
-            
-            // Create preview for images
-            if (file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setPaymentProofPreview(reader.result);
-                };
-                reader.readAsDataURL(file);
-            } else {
-                setPaymentProofPreview(null);
-            }
-            
-            setFormErrors(prev => ({ ...prev, paymentProof: null }));
-        }
-    };
-
     // Validate form
     const validateForm = () => {
         const errors = {};
@@ -164,10 +125,6 @@ export default function CourseCheckoutPage() {
             errors.phoneNumber = 'Mobile number is required';
         } else if (!/^01[3-9]\d{8}$/.test(phoneNumber)) {
             errors.phoneNumber = 'Please enter a valid Bangladeshi mobile number';
-        }
-        
-        if (!paymentProof) {
-            errors.paymentProof = 'Payment proof screenshot is required';
         }
         
         if (!agreementAccepted) {
@@ -186,6 +143,12 @@ export default function CourseCheckoutPage() {
             return;
         }
 
+        const course = courses[selectedCourse];
+        if (!course) {
+            alert('Course not found');
+            return;
+        }
+
         // Validate form
         if (!validateForm()) {
             return;
@@ -194,19 +157,6 @@ export default function CourseCheckoutPage() {
         setIsProcessing(true);
 
         try {
-            const course = courses[selectedCourse];
-            
-            // Convert payment proof to base64
-            let paymentProofBase64 = '';
-            if (paymentProof) {
-                const reader = new FileReader();
-                paymentProofBase64 = await new Promise((resolve, reject) => {
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(paymentProof);
-                });
-            }
-
             const enrollmentData = {
                 userId: user.id,
                 userEmail: user.email,
@@ -220,13 +170,12 @@ export default function CourseCheckoutPage() {
                 phoneNumber: phoneNumber.trim(),
                 couponCode: couponApplied ? couponCode.toUpperCase() : null,
                 discountAmount: discountAmount,
-                paymentProof: paymentProofBase64,
-                paymentProofType: paymentProof?.type || '',
-                paymentProofName: paymentProof?.name || '',
                 status: 'pending',
                 enrolledAt: new Date().toISOString(),
                 lastUpdated: new Date().toISOString()
             };
+
+            console.log('Submitting enrollment:', enrollmentData);
 
             // Submit enrollment to API
             const response = await fetch('/api/enrollments/submit', {
@@ -273,7 +222,6 @@ export default function CourseCheckoutPage() {
     }
 
     const selectedCourseData = courses[selectedCourse];
-    const selectedPaymentMethod = paymentMethods.find(m => m.id === paymentMethod);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -361,9 +309,9 @@ export default function CourseCheckoutPage() {
                                     <ul className="list-disc pl-5 text-yellow-700 text-sm space-y-1">
                                         <li>Send exact amount: <strong>${calculateTotal().toFixed(2)}</strong></li>
                                         <li>Use correct merchant number for your selected payment method</li>
-                                        <li>Save transaction ID screenshot</li>
+                                        <li>Save transaction ID for reference</li>
                                         <li>You will receive access after admin verification (usually within 24 hours)</li>
-                                        <li>Keep your transaction ID for any queries</li>
+                                        <li>Keep your transaction ID safe for any queries</li>
                                     </ul>
                                 </div>
                             )}
@@ -430,58 +378,6 @@ export default function CourseCheckoutPage() {
                                             <p className="mt-1 text-sm text-red-600">{formErrors.transactionId}</p>
                                         )}
                                     </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Payment Proof (Screenshot) *
-                                    </label>
-                                    <div className="mt-1">
-                                        <label className="cursor-pointer flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg hover:border-blue-400 transition-colors bg-gray-50">
-                                            {paymentProofPreview ? (
-                                                <div className="relative w-full h-full p-4">
-                                                    <img 
-                                                        src={paymentProofPreview} 
-                                                        alt="Payment proof preview" 
-                                                        className="max-h-full max-w-full mx-auto object-contain"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setPaymentProof(null);
-                                                            setPaymentProofPreview('');
-                                                        }}
-                                                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
-                                                    >
-                                                        <XMarkIcon className="h-4 w-4" />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                                    <DocumentTextIcon className="w-10 h-10 mb-3 text-gray-400" />
-                                                    <p className="mb-2 text-sm text-gray-500">
-                                                        <span className="font-semibold">Click to upload</span> screenshot
-                                                    </p>
-                                                    <p className="text-xs text-gray-500">
-                                                        PNG, JPG up to 5MB
-                                                    </p>
-                                                </div>
-                                            )}
-                                            <input
-                                                type="file"
-                                                className="hidden"
-                                                accept="image/*"
-                                                onChange={handleFileUpload}
-                                            />
-                                        </label>
-                                    </div>
-                                    {formErrors.paymentProof && (
-                                        <p className="mt-1 text-sm text-red-600">{formErrors.paymentProof}</p>
-                                    )}
-                                    <p className="mt-2 text-xs text-gray-500">
-                                        Upload screenshot of successful transaction from your mobile banking app
-                                    </p>
                                 </div>
 
                                 {/* Merchant Information */}
@@ -612,7 +508,7 @@ export default function CourseCheckoutPage() {
                                 <ul className="text-sm text-blue-700 space-y-1">
                                     <li>• Your enrollment will be <strong>pending</strong> until admin verification</li>
                                     <li>• You'll receive email confirmation immediately</li>
-                                    <li>• Course access granted after admin approval (within 24 hours)</li>
+                                    <li>• Course access granted after admin approval (usually within 24 hours)</li>
                                     <li>• Keep your transaction ID safe for reference</li>
                                 </ul>
                             </div>
@@ -648,8 +544,8 @@ export default function CourseCheckoutPage() {
                             {/* Submit Button */}
                             <button
                                 onClick={submitEnrollmentRequest}
-                                disabled={isProcessing}
-                                className={`w-full py-4 px-6 rounded-xl font-bold text-white text-lg transition-all duration-200 ${isProcessing
+                                disabled={isProcessing || !agreementAccepted || !transactionId || !phoneNumber}
+                                className={`w-full py-4 px-6 rounded-xl font-bold text-white text-lg transition-all duration-200 ${isProcessing || !agreementAccepted || !transactionId || !phoneNumber
                                         ? 'bg-gray-400 cursor-not-allowed'
                                         : 'bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl'
                                     }`}

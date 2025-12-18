@@ -6,7 +6,6 @@ import { useAuth } from '@/components/AuthContext';
 import {
     CheckCircleIcon,
     ShieldCheckIcon,
-    CreditCardIcon,
     BanknotesIcon,
     DevicePhoneMobileIcon,
     LockClosedIcon,
@@ -14,9 +13,9 @@ import {
     XMarkIcon,
     SparklesIcon,
     BookOpenIcon,
-    ClockIcon,
     EnvelopeIcon,
-    ExclamationTriangleIcon
+    ExclamationTriangleIcon,
+    DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
@@ -35,7 +34,9 @@ export default function CourseCheckoutPage() {
     const [transactionId, setTransactionId] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [paymentProof, setPaymentProof] = useState(null);
+    const [paymentProofPreview, setPaymentProofPreview] = useState('');
     const [showPaymentGuidelines, setShowPaymentGuidelines] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
 
     // Course details
     const courses = {
@@ -108,9 +109,11 @@ export default function CourseCheckoutPage() {
             const discount = course.price * discountRate;
             setDiscountAmount(discount);
             setCouponApplied(true);
+            setFormErrors(prev => ({ ...prev, coupon: null }));
             alert(`Coupon applied! You saved $${discount.toFixed(2)}`);
         } else {
             alert('Invalid coupon code');
+            setFormErrors(prev => ({ ...prev, coupon: 'Invalid coupon code' }));
         }
     };
 
@@ -133,36 +136,58 @@ export default function CourseCheckoutPage() {
             }
             
             setPaymentProof(file);
+            
+            // Create preview for images
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setPaymentProofPreview(reader.result);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                setPaymentProofPreview(null);
+            }
+            
+            setFormErrors(prev => ({ ...prev, paymentProof: null }));
         }
+    };
+
+    // Validate form
+    const validateForm = () => {
+        const errors = {};
+        
+        if (!transactionId.trim()) {
+            errors.transactionId = 'Transaction ID is required';
+        }
+        
+        if (!phoneNumber.trim()) {
+            errors.phoneNumber = 'Mobile number is required';
+        } else if (!/^01[3-9]\d{8}$/.test(phoneNumber)) {
+            errors.phoneNumber = 'Please enter a valid Bangladeshi mobile number';
+        }
+        
+        if (!paymentProof) {
+            errors.paymentProof = 'Payment proof screenshot is required';
+        }
+        
+        if (!agreementAccepted) {
+            errors.agreement = 'You must accept the terms and conditions';
+        }
+        
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
     };
 
     // Submit enrollment request
     const submitEnrollmentRequest = async () => {
-        if (!agreementAccepted) {
-            alert('Please accept the terms and conditions');
-            return;
-        }
-
         if (!user) {
             alert('Please login to continue');
             router.push('/login?redirect=/checkout');
             return;
         }
 
-        // Validate required fields based on payment method
-        if (paymentMethod === 'bkash' || paymentMethod === 'nagad') {
-            if (!transactionId.trim()) {
-                alert('Please enter your transaction ID');
-                return;
-            }
-            if (!phoneNumber.trim()) {
-                alert('Please enter your mobile number');
-                return;
-            }
-        }
-
-        if (!paymentProof) {
-            alert('Please upload payment proof (screenshot)');
+        // Validate form
+        if (!validateForm()) {
             return;
         }
 
@@ -170,96 +195,62 @@ export default function CourseCheckoutPage() {
 
         try {
             const course = courses[selectedCourse];
+            
+            // Convert payment proof to base64
+            let paymentProofBase64 = '';
+            if (paymentProof) {
+                const reader = new FileReader();
+                paymentProofBase64 = await new Promise((resolve, reject) => {
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(paymentProof);
+                });
+            }
+
             const enrollmentData = {
                 userId: user.id,
                 userEmail: user.email,
-                userName: user.name,
+                userName: user.name || user.email.split('@')[0],
                 courseId: selectedCourse,
                 courseName: course.name,
                 coursePrice: course.price,
                 finalAmount: calculateTotal(),
                 paymentMethod: paymentMethod,
-                transactionId: transactionId,
-                phoneNumber: phoneNumber,
-                couponCode: couponApplied ? couponCode : null,
+                transactionId: transactionId.trim(),
+                phoneNumber: phoneNumber.trim(),
+                couponCode: couponApplied ? couponCode.toUpperCase() : null,
                 discountAmount: discountAmount,
-                status: 'pending', // pending, approved, rejected
+                paymentProof: paymentProofBase64,
+                paymentProofType: paymentProof?.type || '',
+                paymentProofName: paymentProof?.name || '',
+                status: 'pending',
                 enrolledAt: new Date().toISOString(),
-                paymentProof: paymentProof.name
+                lastUpdated: new Date().toISOString()
             };
 
-            // Upload payment proof file
-            const formData = new FormData();
-            formData.append('paymentProof', paymentProof);
-            formData.append('enrollmentData', JSON.stringify(enrollmentData));
-
-            // Simulate API call to submit enrollment
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // In real implementation:
-            // const response = await fetch('/api/enrollments/submit', {
-            //     method: 'POST',
-            //     body: formData
-            // });
-            // const result = await response.json();
-
-            // Save to localStorage for demo
-            const pendingEnrollments = JSON.parse(localStorage.getItem('pendingEnrollments') || '[]');
-            pendingEnrollments.push({
-                ...enrollmentData,
-                id: `ENR${Date.now()}${Math.random().toString(36).substr(2, 9)}`
+            // Submit enrollment to API
+            const response = await fetch('/api/enrollments/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(enrollmentData)
             });
-            localStorage.setItem('pendingEnrollments', JSON.stringify(pendingEnrollments));
 
-            // Send confirmation email to user
-            await sendUserEmail('pending', enrollmentData);
-            
-            // Send notification email to admin
-            await sendAdminNotification(enrollmentData);
+            const result = await response.json();
 
-            // Redirect to pending status page
-            router.push(`/enrollment-status?status=pending&enrollmentId=${enrollmentData.id}`);
+            if (result.success) {
+                // Redirect to status page
+                router.push(`/enrollment-status?status=pending&enrollmentId=${result.enrollmentId}`);
+            } else {
+                throw new Error(result.message || 'Submission failed');
+            }
 
         } catch (error) {
             console.error('Enrollment error:', error);
-            alert('Enrollment submission failed. Please try again.');
+            alert(`Enrollment submission failed: ${error.message}. Please try again.`);
             setIsProcessing(false);
         }
-    };
-
-    // Send email to user
-    const sendUserEmail = async (status, enrollmentData) => {
-        // In real implementation, call your email API
-        const emailData = {
-            to: enrollmentData.userEmail,
-            subject: status === 'pending' 
-                ? `Course Enrollment Submitted - ${enrollmentData.courseName}`
-                : `Course Enrollment ${status} - ${enrollmentData.courseName}`,
-            template: status === 'pending' ? 'enrollment-pending' : `enrollment-${status}`,
-            data: enrollmentData
-        };
-
-        console.log('Sending email to user:', emailData);
-        // await fetch('/api/send-email', {
-        //     method: 'POST',
-        //     body: JSON.stringify(emailData)
-        // });
-    };
-
-    // Send notification to admin
-    const sendAdminNotification = async (enrollmentData) => {
-        const adminNotification = {
-            to: 'admin@learningbd.com',
-            subject: `New Enrollment Request - ${enrollmentData.courseName}`,
-            template: 'admin-enrollment-notification',
-            data: enrollmentData
-        };
-
-        console.log('Sending notification to admin:', adminNotification);
-        // await fetch('/api/send-email', {
-        //     method: 'POST',
-        //     body: JSON.stringify(adminNotification)
-        // });
     };
 
     useEffect(() => {
@@ -406,11 +397,18 @@ export default function CourseCheckoutPage() {
                                         <input
                                             type="tel"
                                             value={phoneNumber}
-                                            onChange={(e) => setPhoneNumber(e.target.value)}
+                                            onChange={(e) => {
+                                                setPhoneNumber(e.target.value);
+                                                setFormErrors(prev => ({ ...prev, phoneNumber: null }));
+                                            }}
                                             placeholder="01XXXXXXXXX"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            required
+                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                                                formErrors.phoneNumber ? 'border-red-300' : 'border-gray-300'
+                                            }`}
                                         />
+                                        {formErrors.phoneNumber && (
+                                            <p className="mt-1 text-sm text-red-600">{formErrors.phoneNumber}</p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -419,11 +417,18 @@ export default function CourseCheckoutPage() {
                                         <input
                                             type="text"
                                             value={transactionId}
-                                            onChange={(e) => setTransactionId(e.target.value)}
+                                            onChange={(e) => {
+                                                setTransactionId(e.target.value);
+                                                setFormErrors(prev => ({ ...prev, transactionId: null }));
+                                            }}
                                             placeholder="Enter transaction ID"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            required
+                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                                                formErrors.transactionId ? 'border-red-300' : 'border-gray-300'
+                                            }`}
                                         />
+                                        {formErrors.transactionId && (
+                                            <p className="mt-1 text-sm text-red-600">{formErrors.transactionId}</p>
+                                        )}
                                     </div>
                                 </div>
 
@@ -431,45 +436,56 @@ export default function CourseCheckoutPage() {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Payment Proof (Screenshot) *
                                     </label>
-                                    <div className="mt-1 flex items-center">
-                                        <label className="cursor-pointer flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors">
-                                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                                <svg className="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                                </svg>
-                                                <p className="mb-2 text-sm text-gray-500">
-                                                    <span className="font-semibold">Click to upload</span> or drag and drop
-                                                </p>
-                                                <p className="text-xs text-gray-500">
-                                                    PNG, JPG, PDF up to 5MB
-                                                </p>
-                                            </div>
+                                    <div className="mt-1">
+                                        <label className="cursor-pointer flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg hover:border-blue-400 transition-colors bg-gray-50">
+                                            {paymentProofPreview ? (
+                                                <div className="relative w-full h-full p-4">
+                                                    <img 
+                                                        src={paymentProofPreview} 
+                                                        alt="Payment proof preview" 
+                                                        className="max-h-full max-w-full mx-auto object-contain"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setPaymentProof(null);
+                                                            setPaymentProofPreview('');
+                                                        }}
+                                                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                                                    >
+                                                        <XMarkIcon className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                    <DocumentTextIcon className="w-10 h-10 mb-3 text-gray-400" />
+                                                    <p className="mb-2 text-sm text-gray-500">
+                                                        <span className="font-semibold">Click to upload</span> screenshot
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        PNG, JPG up to 5MB
+                                                    </p>
+                                                </div>
+                                            )}
                                             <input
                                                 type="file"
                                                 className="hidden"
-                                                accept="image/*,.pdf"
+                                                accept="image/*"
                                                 onChange={handleFileUpload}
                                             />
                                         </label>
                                     </div>
-                                    {paymentProof && (
-                                        <div className="mt-2 flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                                            <div className="flex items-center">
-                                                <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
-                                                <span className="text-sm text-gray-700">{paymentProof.name}</span>
-                                            </div>
-                                            <button
-                                                onClick={() => setPaymentProof(null)}
-                                                className="text-red-500 hover:text-red-700"
-                                            >
-                                                <XMarkIcon className="h-5 w-5" />
-                                            </button>
-                                        </div>
+                                    {formErrors.paymentProof && (
+                                        <p className="mt-1 text-sm text-red-600">{formErrors.paymentProof}</p>
                                     )}
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        Upload screenshot of successful transaction from your mobile banking app
+                                    </p>
                                 </div>
 
                                 {/* Merchant Information */}
-                                <div className="p-4 bg-gray-50 rounded-lg">
+                                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                     <h3 className="font-bold text-gray-900 mb-2">Send Money To:</h3>
                                     <div className="space-y-2">
                                         <div className="flex justify-between">
@@ -483,7 +499,7 @@ export default function CourseCheckoutPage() {
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Reference:</span>
                                             <span className="font-semibold text-purple-600">
-                                                COURSE-{selectedCourse.toUpperCase()}-{user.id.slice(-6)}
+                                                {selectedCourse.toUpperCase()}-{user.id?.slice(-6) || 'USER'}
                                             </span>
                                         </div>
                                     </div>
@@ -549,6 +565,9 @@ export default function CourseCheckoutPage() {
                                                     <XMarkIcon className="h-5 w-5" />
                                                 </button>
                                             </div>
+                                            {formErrors.coupon && (
+                                                <p className="text-sm text-red-600">{formErrors.coupon}</p>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -605,8 +624,13 @@ export default function CourseCheckoutPage() {
                                         type="checkbox"
                                         id="agreement"
                                         checked={agreementAccepted}
-                                        onChange={(e) => setAgreementAccepted(e.target.checked)}
-                                        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        onChange={(e) => {
+                                            setAgreementAccepted(e.target.checked);
+                                            setFormErrors(prev => ({ ...prev, agreement: null }));
+                                        }}
+                                        className={`mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                                            formErrors.agreement ? 'border-red-300' : ''
+                                        }`}
                                     />
                                     <label htmlFor="agreement" className="ml-2 text-sm text-gray-600">
                                         I agree to the{' '}
@@ -616,13 +640,16 @@ export default function CourseCheckoutPage() {
                                         and understand that my enrollment needs admin verification before I can access the course content.
                                     </label>
                                 </div>
+                                {formErrors.agreement && (
+                                    <p className="text-sm text-red-600">{formErrors.agreement}</p>
+                                )}
                             </div>
 
                             {/* Submit Button */}
                             <button
                                 onClick={submitEnrollmentRequest}
-                                disabled={isProcessing || !agreementAccepted || !transactionId || !paymentProof || !phoneNumber}
-                                className={`w-full py-4 px-6 rounded-xl font-bold text-white text-lg transition-all duration-200 ${isProcessing || !agreementAccepted || !transactionId || !paymentProof || !phoneNumber
+                                disabled={isProcessing}
+                                className={`w-full py-4 px-6 rounded-xl font-bold text-white text-lg transition-all duration-200 ${isProcessing
                                         ? 'bg-gray-400 cursor-not-allowed'
                                         : 'bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl'
                                     }`}

@@ -1,101 +1,193 @@
 import { connectToDatabase } from '@/lib/mongodb';
-import Enrollment from '@/models/Enrollment';
-import Course from '@/models/Course';
 
 export async function POST(request) {
-  // console.log('server hit');
   try {
     const enrollmentData = await request.json();
-    // console.log(enrollmentData);
+    console.log('📥 Received enrollment data:', enrollmentData);
     
-    console.log('database could not  connect');
     // Connect to database
-    await connectToDatabase();
-    console.log(await connectToDatabase());
-    console.log('database connect');
+    const { db } = await connectToDatabase();
+    console.log('✅ Database connected successfully');
     
-    // // Validate required fields
-    // const requiredFields = ['userId', 'userEmail', 'courseId', 'transactionId', 'phoneNumber', 'paymentProof'];
-    // for (const field of requiredFields) {
-    //   if (!enrollmentData[field]) {
-    //     return Response.json({
-    //       success: false,
-    //       message: `Missing required field: ${field}`
-    //     }, { status: 400 });
-    //   }
-    // }
+    // Validate required fields (removed userId requirement)
+    const requiredFields = ['userEmail', 'courseId', 'transactionId', 'phoneNumber'];
+    const missingFields = [];
     
-    // // Check if course exists
-    // const course = await Course.findById(enrollmentData.courseId);
-    // if (!course) {
-    //   return Response.json({
-    //     success: false,
-    //     message: 'Course not found'
-    //   }, { status: 404 });
-    // }
+    for (const field of requiredFields) {
+      if (!enrollmentData[field]) {
+        missingFields.push(field);
+      }
+    }
     
-    // // Check if transaction ID already exists
-    // const existingEnrollment = await Enrollment.findOne({ 
-    //   transactionId: enrollmentData.transactionId 
-    // });
-    
-    // if (existingEnrollment) {
-    //   return Response.json({
-    //     success: false,
-    //     message: 'Transaction ID already used. Please use a different transaction ID.'
-    //   }, { status: 400 });
-    // }
-    
-    // // Generate unique enrollment ID
-    // const enrollmentId = `ENR${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
-    
-    // // Create enrollment
-    // const enrollment = new Enrollment({
-    //   _id: enrollmentId,
-    //   userId: enrollmentData.userId,
-    //   userEmail: enrollmentData.userEmail,
-    //   userName: enrollmentData.userName || enrollmentData.userEmail.split('@')[0],
-    //   courseId: enrollmentData.courseId,
-    //   courseName: course.name,
-    //   coursePrice: course.price,
-    //   finalAmount: enrollmentData.finalAmount || course.price,
-    //   paymentMethod: enrollmentData.paymentMethod || 'bkash',
-    //   transactionId: enrollmentData.transactionId,
-    //   phoneNumber: enrollmentData.phoneNumber,
-    //   paymentProof: enrollmentData.paymentProof,
-    //   paymentProofType: enrollmentData.paymentProofType || 'image/png',
-    //   paymentProofName: enrollmentData.paymentProofName || 'payment_proof.png',
-    //   couponCode: enrollmentData.couponCode || null,
-    //   discountAmount: enrollmentData.discountAmount || 0,
-    //   status: 'pending'
-    // });
-    
-    // // Save enrollment
-    // await enrollment.save();
-    
-    // // TODO: Send email notification (implement email service)
-    // console.log('Enrollment saved successfully:', enrollmentId);
-    
-    // return Response.json({
-    //   success: true,
-    //   enrollmentId: enrollmentId,
-    //   message: 'Enrollment submitted successfully. Please wait for admin approval.'
-    // });
-    
-  } catch (error) {
-    console.error('Error submitting enrollment:', error);
-    
-    // Handle duplicate key error
-    if (error.code === 11000) {
+    if (missingFields.length > 0) {
+      console.error('❌ Missing required fields:', missingFields);
       return Response.json({
         success: false,
-        message: 'Duplicate transaction ID or enrollment ID'
+        message: `Missing required fields: ${missingFields.join(', ')}`
       }, { status: 400 });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(enrollmentData.userEmail)) {
+      return Response.json({
+        success: false,
+        message: 'Invalid email format'
+      }, { status: 400 });
+    }
+    
+    // Validate phone number format (Bangladeshi)
+    const phoneRegex = /^01[3-9]\d{8}$/;
+    if (!phoneRegex.test(enrollmentData.phoneNumber)) {
+      return Response.json({
+        success: false,
+        message: 'Please enter a valid Bangladeshi mobile number (e.g., 013XXXXXXXX or 017XXXXXXXX)'
+      }, { status: 400 });
+    }
+    
+    // Check if transaction ID already exists
+    const existingEnrollment = await db.collection('enrollments').findOne({ 
+      transactionId: enrollmentData.transactionId 
+    });
+    
+    if (existingEnrollment) {
+      console.error('❌ Duplicate transaction ID:', enrollmentData.transactionId);
+      return Response.json({
+        success: false,
+        message: 'Transaction ID already used. Please use a different transaction ID.'
+      }, { status: 400 });
+    }
+    
+    // Generate unique enrollment ID
+    const enrollmentId = `ENR${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
+    console.log('🆔 Generated enrollment ID:', enrollmentId);
+    
+    // Get or generate user ID from email
+    // If userId is provided, use it. Otherwise, create a simple ID from email
+    const userId = enrollmentData.userId || 
+                   `user_${enrollmentData.userEmail.split('@')[0]}_${Date.now().toString(36)}`;
+    
+    // Create enrollment document
+    const enrollment = {
+      _id: enrollmentId,
+      userId: userId, // Use generated or provided userId
+      userEmail: enrollmentData.userEmail.toLowerCase().trim(),
+      userName: enrollmentData.userName || enrollmentData.userEmail.split('@')[0],
+      courseId: enrollmentData.courseId,
+      courseName: enrollmentData.courseName || 'AI Powered Web Development & Software Architecture',
+      coursePrice: enrollmentData.coursePrice || 297,
+      finalAmount: enrollmentData.finalAmount || enrollmentData.coursePrice || 297,
+      paymentMethod: enrollmentData.paymentMethod || 'bkash',
+      transactionId: enrollmentData.transactionId.trim(),
+      phoneNumber: enrollmentData.phoneNumber.trim(),
+      couponCode: enrollmentData.couponCode || null,
+      discountAmount: enrollmentData.discountAmount || 0,
+      status: 'pending',
+      enrolledAt: new Date(),
+      lastUpdated: new Date(),
+      // Additional fields for tracking
+      ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown'
+    };
+    
+    console.log('📝 Saving enrollment to database...');
+    
+    // Save enrollment to database
+    const result = await db.collection('enrollments').insertOne(enrollment);
+    
+    if (result.acknowledged) {
+      console.log('✅ Enrollment saved successfully:', enrollmentId);
+      
+      // Also update or create user in users collection
+      try {
+        await db.collection('users').updateOne(
+          { email: enrollment.userEmail },
+          {
+            $setOnInsert: {
+              _id: userId,
+              name: enrollment.userName,
+              email: enrollment.userEmail,
+              role: 'user',
+              createdAt: new Date()
+            },
+            $push: {
+              enrolledCourses: {
+                courseId: enrollment.courseId,
+                enrollmentId: enrollmentId,
+                status: 'pending',
+                enrolledAt: enrollment.enrolledAt,
+                courseName: enrollment.courseName,
+                coursePrice: enrollment.coursePrice
+              }
+            },
+            $set: {
+              updatedAt: new Date(),
+              lastEnrollment: enrollment.enrolledAt,
+              phoneNumber: enrollment.phoneNumber
+            }
+          },
+          { upsert: true }
+        );
+        console.log('✅ User record updated/created successfully');
+      } catch (userError) {
+        console.warn('⚠️ Could not update user record:', userError.message);
+        // Continue even if user update fails
+      }
+      
+      // Send success response
+      return Response.json({
+        success: true,
+        enrollmentId: enrollmentId,
+        message: 'Enrollment submitted successfully!',
+        details: {
+          enrollmentId: enrollmentId,
+          status: 'pending',
+          course: enrollment.courseName,
+          amount: enrollment.finalAmount,
+          expectedApprovalTime: '24 hours'
+        }
+      });
+    } else {
+      throw new Error('Failed to save enrollment - database did not acknowledge the insert');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error submitting enrollment:', error);
+    
+    // Handle duplicate key error
+    if (error.code === 11000 || error.message.includes('duplicate')) {
+      return Response.json({
+        success: false,
+        message: 'Transaction ID already used. Please use a different transaction ID.'
+      }, { status: 400 });
+    }
+    
+    // Handle specific MongoDB errors
+    if (error.name === 'MongoNetworkError') {
+      return Response.json({
+        success: false,
+        message: 'Network error. Please check your internet connection and try again.'
+      }, { status: 500 });
+    }
+    
+    if (error.name === 'MongoServerSelectionError') {
+      return Response.json({
+        success: false,
+        message: 'Database server is not available. Please try again later.'
+      }, { status: 500 });
+    }
+    
+    if (error.name === 'MongoTimeoutError') {
+      return Response.json({
+        success: false,
+        message: 'Request timed out. Please try again.'
+      }, { status: 500 });
     }
     
     return Response.json({
       success: false,
-      message: error.message || 'Failed to submit enrollment'
+      message: 'Failed to submit enrollment. Please try again.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, { status: 500 });
   }
 }

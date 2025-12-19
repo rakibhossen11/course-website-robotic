@@ -108,7 +108,7 @@ export default function UserDashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -144,7 +144,7 @@ export default function UserDashboard() {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -198,7 +198,7 @@ export default function UserDashboard() {
                           .filter(e => e.status === 'approved')
                           .map((enrollment) => (
                             <div
-                              key={enrollment._id}
+                              key={enrollment?._id}
                               className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
                             >
                               <div className="flex justify-between items-start">
@@ -216,7 +216,7 @@ export default function UserDashboard() {
                                 <div className="flex items-center gap-3">
                                   {getStatusBadge(enrollment.status)}
                                   <Link
-                                    href={`/courses/${enrollment.courseId}`}
+                                    href={`/courses/${enrollment.courseId}/learn`}
                                     className="text-blue-600 hover:text-blue-700"
                                   >
                                     View Course
@@ -390,7 +390,7 @@ export default function UserDashboard() {
                   .filter(e => e.status === 'approved')
                   .slice(0, 2)
                   .map((enrollment) => (
-                    <div key={enrollment._id}>
+                    <div key={enrollment?._id}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="font-medium">{enrollment.courseName}</span>
                         <span>0%</span>

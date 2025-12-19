@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [dbUser, setDbUser] = useState(null); // MongoDB user data
   const [loading, setLoading] = useState(true);
-  console.log(user);
+  // console.log(user);
 
   // Function to get MongoDB user data
   const fetchUserFromMongoDB = async (firebaseUser) => {

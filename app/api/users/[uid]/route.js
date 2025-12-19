@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/mongodb';
 import User from '@/models/User';
 
 export async function GET(request, { params }) {
   try {
     const { uid } = params;
     
-    await connectDB();
+    await connectToDatabase();
     
     const user = await User.findOne({ uid }).populate({
       path: 'enrolledCourses.courseId',
@@ -53,7 +53,7 @@ export async function PUT(request, { params }) {
     const { uid } = params;
     const updates = await request.json();
     
-    await connectDB();
+    await connectToDatabase();
     
     const user = await User.findOne({ uid });
     

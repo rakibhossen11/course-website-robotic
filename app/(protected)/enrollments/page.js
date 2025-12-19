@@ -36,11 +36,21 @@ export default function AdminEnrollmentsPage() {
         rejected: 0
     });
     const [processingAction, setProcessingAction] = useState(null);
+    const [error, setError] = useState('');
+
+    // Check if user is admin
+    // useEffect(() => {
+    //     if (!loading && (!user || user.role !== 'admin')) {
+    //         router.push('/login');
+    //     }
+    // }, [user, loading, router]);
 
     // Fetch enrollments on component mount
-    useEffect(() => {
-        fetchEnrollments();
-    }, []);
+    // useEffect(() => {
+    //     if (user?.role === 'admin') {
+    //         fetchEnrollments();
+    //     }
+    // }, [user]);
 
     // Filter enrollments when enrollments, filter, or search changes
     useEffect(() => {
@@ -69,27 +79,40 @@ export default function AdminEnrollmentsPage() {
     const fetchEnrollments = async () => {
         try {
             setLoadingEnrollments(true);
-            const response = await fetch('/api/admin/enrollments');
+            setError('');
+            
+            const response = await fetch('/api/admin/enrollments', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                }
+            });
+            
             const data = await response.json();
 
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to fetch enrollments');
+            }
+
             if (data.success) {
-                setEnrollments(data.enrollments);
+                setEnrollments(data.enrollments || []);
 
                 // Calculate stats
                 const stats = {
-                    total: data.enrollments.length,
-                    pending: data.enrollments.filter(e => e.status === 'pending').length,
-                    approved: data.enrollments.filter(e => e.status === 'approved').length,
-                    rejected: data.enrollments.filter(e => e.status === 'rejected').length
+                    total: data.enrollments?.length || 0,
+                    pending: data.enrollments?.filter(e => e.status === 'pending').length || 0,
+                    approved: data.enrollments?.filter(e => e.status === 'approved').length || 0,
+                    rejected: data.enrollments?.filter(e => e.status === 'rejected').length || 0
                 };
                 setStats(stats);
             } else {
-                console.error('Failed to fetch enrollments:', data.message);
+                throw new Error(data.message || 'Failed to fetch enrollments');
             }
         } catch (error) {
             console.error('Error fetching enrollments:', error);
-            // For demo, create sample data
-            createSampleData();
+            setError(error.message);
+            // Show empty state
+            setEnrollments([]);
+            setStats({ total: 0, pending: 0, approved: 0, rejected: 0 });
         } finally {
             setLoadingEnrollments(false);
         }
@@ -101,74 +124,78 @@ export default function AdminEnrollmentsPage() {
     };
 
     const handleAction = async (enrollmentId, action, notes = '') => {
-        console.log(enrollmentId);
         if (processingAction === enrollmentId) return;
+        
+        if (action === 'reject' && (!notes || notes.trim() === '')) {
+            alert('Please provide a reason for rejection.');
+            return;
+        }
 
         setProcessingAction(enrollmentId);
+        setError('');
 
         try {
             const response = await fetch(`/api/admin/enrollments/${enrollmentId}/process`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
                 },
                 body: JSON.stringify({
                     action: action,
-                    adminNotes: notes,
-                    // processedBy: user?.email || 'admin'
+                    adminNotes: notes.trim()
                 })
             });
 
             const data = await response.json();
 
+            if (!response.ok) {
+                throw new Error(data.message || `Failed to ${action} enrollment`);
+            }
+
             if (data.success) {
-                alert(`Enrollment ${action === 'approve' ? 'approved' : 'rejected'} successfully. Email sent to user.`);
-                fetchEnrollments(); // Refresh list
+                // Update the enrollment in the state
+                setEnrollments(prev => prev.map(enrollment => {
+                    if (enrollment._id === enrollmentId) {
+                        return {
+                            ...enrollment,
+                            status: action === 'approve' ? 'approved' : 'rejected',
+                            adminNotes: notes || null,
+                            reviewedAt: new Date().toISOString(),
+                            reviewedBy: user?.id || user?.email
+                        };
+                    }
+                    return enrollment;
+                }));
+
+                // Update stats
+                setStats(prev => {
+                    const newStats = { ...prev };
+                    if (action === 'approve') {
+                        newStats.approved += 1;
+                        newStats.pending -= 1;
+                    } else {
+                        newStats.rejected += 1;
+                        newStats.pending -= 1;
+                    }
+                    return newStats;
+                });
+
                 setShowDetailsModal(false);
+                
+                // Show success message
+                alert(`Enrollment ${action === 'approve' ? 'approved' : 'rejected'} successfully. ${data.emailSent ? 'Email sent to user.' : ''}`);
+                
             } else {
-                // For demo purposes, update locally if API fails
-                updateEnrollmentLocally(enrollmentId, action, notes);
-                alert(`Enrollment ${action === 'approve' ? 'approved' : 'rejected'} (demo mode).`);
-                setShowDetailsModal(false);
+                throw new Error(data.message || `Failed to ${action} enrollment`);
             }
         } catch (error) {
             console.error('Error processing enrollment:', error);
-            // For demo purposes, update locally
-            updateEnrollmentLocally(enrollmentId, action, notes);
-            alert(`Enrollment ${action === 'approve' ? 'approved' : 'rejected'} (demo mode).`);
-            setShowDetailsModal(false);
+            setError(error.message);
+            alert(`Error: ${error.message}`);
         } finally {
             setProcessingAction(null);
         }
-    };
-
-    // Local update for demo purposes
-    const updateEnrollmentLocally = (enrollmentId, action, notes) => {
-        const newStatus = action === 'approve' ? 'approved' : 'rejected';
-
-        setEnrollments(prev => prev.map(enrollment => {
-            if (enrollment._id === enrollmentId) {
-                return {
-                    ...enrollment,
-                    status: newStatus,
-                    adminNotes: notes || null,
-                    reviewedAt: new Date().toISOString(),
-                    emailSent: true
-                };
-            }
-            return enrollment;
-        }));
-
-        // Update stats
-        const newStats = { ...stats };
-        if (newStatus === 'approved') {
-            newStats.approved += 1;
-            newStats.pending -= 1;
-        } else if (newStatus === 'rejected') {
-            newStats.rejected += 1;
-            newStats.pending -= 1;
-        }
-        setStats(newStats);
     };
 
     const handleApprove = (enrollmentId) => {
@@ -249,13 +276,21 @@ export default function AdminEnrollmentsPage() {
                             <h1 className="text-3xl font-bold text-gray-900">Enrollment Management</h1>
                             <p className="text-gray-600 mt-2">Review and verify course enrollments</p>
                         </div>
-                        <button
-                            onClick={fetchEnrollments}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                            <ArrowPathIcon className="h-5 w-5" />
-                            Refresh
-                        </button>
+                        <div className="flex items-center gap-3">
+                            {error && (
+                                <div className="text-red-600 text-sm bg-red-50 px-3 py-1 rounded">
+                                    {error}
+                                </div>
+                            )}
+                            <button
+                                onClick={fetchEnrollments}
+                                disabled={loadingEnrollments}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                            >
+                                <ArrowPathIcon className={`h-5 w-5 ${loadingEnrollments ? 'animate-spin' : ''}`} />
+                                {loadingEnrollments ? 'Refreshing...' : 'Refresh'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -382,12 +417,6 @@ export default function AdminEnrollmentsPage() {
                             <p className="text-gray-600">
                                 {filter === 'all' ? 'No enrollments yet.' : `No ${filter} enrollments.`}
                             </p>
-                            <button
-                                onClick={createSampleData}
-                                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                            >
-                                Load Sample Data
-                            </button>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -438,11 +467,11 @@ export default function AdminEnrollmentsPage() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">
-                                                    {enrollment.courseName || 'AI Powered Web Development'}
+                                                    {enrollment.courseName || 'N/A'}
                                                 </div>
                                                 <div className="text-sm text-gray-500 flex items-center gap-1">
                                                     <CurrencyDollarIcon className="h-4 w-4" />
-                                                    ${enrollment.finalAmount || enrollment.coursePrice || 297}
+                                                    ${enrollment.finalAmount || enrollment.coursePrice || 0}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -450,11 +479,16 @@ export default function AdminEnrollmentsPage() {
                                                     {enrollment.transactionId || 'N/A'}
                                                 </div>
                                                 <div className="text-xs text-gray-500 mt-1">
-                                                    {(enrollment.paymentMethod || 'bkash').toUpperCase()}
+                                                    {(enrollment.paymentMethod || 'N/A').toUpperCase()}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {getStatusBadge(enrollment.status || 'pending')}
+                                                {enrollment.reviewedBy && (
+                                                    <div className="text-xs text-gray-400 mt-1">
+                                                        By: {enrollment.reviewedBy}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {formatDate(enrollment.enrolledAt)}
@@ -490,8 +524,8 @@ export default function AdminEnrollmentsPage() {
                                                         </>
                                                     )}
 
-                                                    {enrollment.emailSent && (
-                                                        <span className="text-gray-400 p-2" title="Email sent to user">
+                                                    {enrollment.adminNotes && (
+                                                        <span className="text-gray-400 p-2" title={`Admin notes: ${enrollment.adminNotes}`}>
                                                             <EnvelopeIcon className="h-5 w-5" />
                                                         </span>
                                                     )}
@@ -506,26 +540,24 @@ export default function AdminEnrollmentsPage() {
                 </div>
             </div>
 
-            {/* Enrollment Details Modal - Updated with translucent background */}
+            {/* Enrollment Details Modal */}
             {showDetailsModal && selectedEnrollment && (
                 <div className="fixed inset-0 z-50 overflow-y-auto">
-                    {/* Backdrop with light blur effect instead of black */}
                     <div
                         className="fixed inset-0 bg-gray-500 bg-opacity-25 backdrop-blur-sm transition-opacity"
                         onClick={() => setShowDetailsModal(false)}
                     />
-
-                    {/* Modal container */}
+                    
                     <div className="flex min-h-full items-center justify-center p-4">
-                        <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto transform transition-all">
+                        <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                             <div className="p-6">
                                 <div className="flex justify-between items-center mb-6">
                                     <h2 className="text-2xl font-bold text-gray-900">Enrollment Details</h2>
                                     <button
                                         onClick={() => setShowDetailsModal(false)}
-                                        className="text-gray-400 hover:text-gray-500 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors"
+                                        className="text-gray-400 hover:text-gray-500"
                                     >
-                                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                                         </svg>
                                     </button>
@@ -534,10 +566,7 @@ export default function AdminEnrollmentsPage() {
                                 <div className="space-y-6">
                                     {/* Student Info */}
                                     <div>
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                            <UserIcon className="h-5 w-5" />
-                                            Student Information
-                                        </h3>
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Student Information</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="bg-gray-50 p-4 rounded-lg">
                                                 <p className="text-sm text-gray-500">Name</p>
@@ -560,21 +589,18 @@ export default function AdminEnrollmentsPage() {
 
                                     {/* Course Info */}
                                     <div>
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                            <AcademicCapIcon className="h-5 w-5" />
-                                            Course Information
-                                        </h3>
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Course Information</h3>
                                         <div className="bg-gray-50 p-4 rounded-lg">
                                             <p className="text-sm text-gray-500">Course Name</p>
-                                            <p className="font-medium text-lg">{selectedEnrollment.courseName || 'AI Powered Web Development'}</p>
+                                            <p className="font-medium text-lg">{selectedEnrollment.courseName || 'N/A'}</p>
                                             <div className="grid grid-cols-2 gap-4 mt-3">
                                                 <div>
                                                     <p className="text-sm text-gray-500">Course Price</p>
-                                                    <p className="font-medium">${selectedEnrollment.coursePrice || 297}</p>
+                                                    <p className="font-medium">${selectedEnrollment.coursePrice || 0}</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-sm text-gray-500">Final Amount</p>
-                                                    <p className="font-medium">${selectedEnrollment.finalAmount || selectedEnrollment.coursePrice || 297}</p>
+                                                    <p className="font-medium">${selectedEnrollment.finalAmount || selectedEnrollment.coursePrice || 0}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -582,10 +608,7 @@ export default function AdminEnrollmentsPage() {
 
                                     {/* Payment Info */}
                                     <div>
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                            <CurrencyDollarIcon className="h-5 w-5" />
-                                            Payment Information
-                                        </h3>
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Information</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="bg-gray-50 p-4 rounded-lg">
                                                 <p className="text-sm text-gray-500">Transaction ID</p>
@@ -593,7 +616,7 @@ export default function AdminEnrollmentsPage() {
                                             </div>
                                             <div className="bg-gray-50 p-4 rounded-lg">
                                                 <p className="text-sm text-gray-500">Payment Method</p>
-                                                <p className="font-medium">{(selectedEnrollment.paymentMethod || 'bkash').toUpperCase()}</p>
+                                                <p className="font-medium">{(selectedEnrollment.paymentMethod || 'N/A').toUpperCase()}</p>
                                             </div>
                                             <div className="bg-gray-50 p-4 rounded-lg">
                                                 <p className="text-sm text-gray-500">Enrollment ID</p>
@@ -612,11 +635,10 @@ export default function AdminEnrollmentsPage() {
                                         <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
                                             <div className="flex items-center gap-3">
                                                 {getStatusBadge(selectedEnrollment.status || 'pending')}
-                                                {selectedEnrollment.emailSent && (
-                                                    <span className="flex items-center gap-1 text-sm text-gray-600">
-                                                        <EnvelopeIcon className="h-4 w-4" />
-                                                        Email sent
-                                                    </span>
+                                                {selectedEnrollment.reviewedAt && (
+                                                    <div className="text-sm text-gray-600">
+                                                        Reviewed: {formatDate(selectedEnrollment.reviewedAt)}
+                                                    </div>
                                                 )}
                                             </div>
                                             {(selectedEnrollment.status === 'pending' || !selectedEnrollment.status) && (
@@ -626,20 +648,20 @@ export default function AdminEnrollmentsPage() {
                                                             setShowDetailsModal(false);
                                                             handleApprove(selectedEnrollment._id);
                                                         }}
-                                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors"
+                                                        disabled={processingAction === selectedEnrollment._id}
+                                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                                                     >
-                                                        <CheckCircleIcon className="h-4 w-4" />
-                                                        Approve
+                                                        {processingAction === selectedEnrollment._id ? 'Processing...' : 'Approve'}
                                                     </button>
                                                     <button
                                                         onClick={() => {
                                                             setShowDetailsModal(false);
                                                             handleReject(selectedEnrollment._id);
                                                         }}
-                                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 transition-colors"
+                                                        disabled={processingAction === selectedEnrollment._id}
+                                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                                                     >
-                                                        <XCircleIcon className="h-4 w-4" />
-                                                        Reject
+                                                        {processingAction === selectedEnrollment._id ? 'Processing...' : 'Reject'}
                                                     </button>
                                                 </div>
                                             )}
@@ -660,18 +682,9 @@ export default function AdminEnrollmentsPage() {
                                 <div className="mt-8 flex justify-end gap-3">
                                     <button
                                         onClick={() => setShowDetailsModal(false)}
-                                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                                     >
                                         Close
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(JSON.stringify(selectedEnrollment, null, 2));
-                                            alert('Enrollment details copied to clipboard!');
-                                        }}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                    >
-                                        Copy Details
                                     </button>
                                 </div>
                             </div>

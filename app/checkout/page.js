@@ -158,9 +158,9 @@ export default function CourseCheckoutPage() {
 
         try {
             const enrollmentData = {
-                userId: user.id,
+                userId: user.uid, // Changed from user.id to user.uid
                 userEmail: user.email,
-                userName: user.name || user.email.split('@')[0],
+                userName: user.displayName || user.email?.split('@')[0] || 'User',
                 courseId: selectedCourse,
                 courseName: course.name,
                 coursePrice: course.price,
@@ -203,10 +203,12 @@ export default function CourseCheckoutPage() {
     };
 
     useEffect(() => {
-        if (!loading && !user) {
-            router.push('/login?redirect=/checkout');
-        } else if (!loading) {
-            setIsLoading(false);
+        if (!loading) {
+            if (!user) {
+                router.push('/login?redirect=/checkout');
+            } else {
+                setIsLoading(false);
+            }
         }
     }, [user, loading, router]);
 
@@ -222,6 +224,9 @@ export default function CourseCheckoutPage() {
     }
 
     const selectedCourseData = courses[selectedCourse];
+    const userEmail = user?.email || '';
+    const userId = user?.uid || '';
+    const userShortId = userId ? userId.slice(-6) : 'USER';
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -395,7 +400,7 @@ export default function CourseCheckoutPage() {
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Reference:</span>
                                             <span className="font-semibold text-purple-600">
-                                                {selectedCourse.toUpperCase()}-{user.id?.slice(-6) || 'USER'}
+                                                {selectedCourse.toUpperCase()}-{userShortId}
                                             </span>
                                         </div>
                                     </div>

@@ -284,7 +284,7 @@ export default function AdminCoursesPage() {
                         <h3 className="text-lg font-medium text-gray-900 mb-2">No courses found</h3>
                         <p className="text-gray-600 mb-4">Create your first course to start organizing content</p>
                         <Link
-                            href="/admin/courses/create"
+                            href="/courses/create"
                             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         >
                             <PlusIcon className="h-5 w-5" />
@@ -315,7 +315,7 @@ export default function AdminCoursesPage() {
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <Link
-                                                href={`/admin/courses/${course.id}`}
+                                                href={`/courses/${course.id}`}
                                                 className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded"
                                                 title="View Course"
                                             >
@@ -408,7 +408,7 @@ export default function AdminCoursesPage() {
                                     
                                     <div className="flex gap-3">
                                         <Link
-                                            href={`/admin/courses/${course.id}/modules`}
+                                            href={`/courses/${course.id}/modules`}
                                             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                         >
                                             <DocumentPlusIcon className="h-5 w-5" />

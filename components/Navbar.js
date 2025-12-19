@@ -25,7 +25,7 @@ const Navbar = () => {
   const userNavigation = [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'My Classes', href: '/student' },
-    { name: 'Enrollments', href: '/admin/enrollments' },
+    { name: 'Enrollments', href: '/enrollments' },
     // { name: 'My Courses', href: '/my-courses' },
     // { name: 'Progress', href: '/progress' },
     // { name: 'Assignments', href: '/assignments' },

@@ -2,9 +2,11 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { sendEnrollmentApproval, sendEnrollmentRejection } from '@/lib/email-service';
 
 export async function POST(request, { params }) {
-    console.log(params);
   try {
-    const enrollmentId = params.id;
+    // Await the params promise first
+    const { id } = await params;
+    console.log('get path name ', id);
+    
     const { action, adminNotes, processedBy } = await request.json();
     
     if (!['approve', 'reject'].includes(action)) {
@@ -17,7 +19,7 @@ export async function POST(request, { params }) {
     const { db } = await connectToDatabase();
     
     // Find the enrollment
-    const enrollment = await db.collection('enrollments').findOne({ _id: enrollmentId });
+    const enrollment = await db.collection('enrollments').findOne({ _id: id });
     
     if (!enrollment) {
       return Response.json({
@@ -30,7 +32,7 @@ export async function POST(request, { params }) {
     
     // Update enrollment
     const updateResult = await db.collection('enrollments').updateOne(
-      { _id: enrollmentId },
+      { _id: id },
       {
         $set: {
           status: newStatus,
@@ -47,7 +49,7 @@ export async function POST(request, { params }) {
       try {
         if (process.env.EMAIL_ENABLED === 'true') {
           const emailData = {
-            enrollmentId: enrollmentId,
+            enrollmentId: id,
             transactionId: enrollment.transactionId,
             courseName: enrollment.courseName,
             userName: enrollment.userName,
@@ -65,7 +67,7 @@ export async function POST(request, { params }) {
           
           // Update email status in enrollment
           await db.collection('enrollments').updateOne(
-            { _id: enrollmentId },
+            { _id: id },
             { $set: { emailSent: true, emailSentAt: new Date() } }
           );
         }
@@ -77,7 +79,7 @@ export async function POST(request, { params }) {
       return Response.json({
         success: true,
         message: `Enrollment ${newStatus} successfully`,
-        enrollmentId: enrollmentId,
+        enrollmentId: id,
         newStatus: newStatus
       });
     } else {
@@ -92,10 +94,10 @@ export async function POST(request, { params }) {
     
     // Return success for demo purposes even if database fails
     return Response.json({
-      success: true,
-      message: `Enrollment ${action === 'approve' ? 'approved' : 'rejected'} (demo mode)`,
-      enrollmentId: params.id,
-      newStatus: action === 'approve' ? 'approved' : 'rejected'
-    });
+      success: false,
+      message: `Error processing enrollment: ${error.message}`,
+      enrollmentId: (await params)?.id || 'unknown',
+      newStatus: 'error'
+    }, { status: 500 });
   }
 }

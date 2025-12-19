@@ -39,18 +39,18 @@ export default function AdminEnrollmentsPage() {
     const [error, setError] = useState('');
 
     // Check if user is admin
-    // useEffect(() => {
-    //     if (!loading && (!user || user.role !== 'admin')) {
-    //         router.push('/login');
-    //     }
-    // }, [user, loading, router]);
+    useEffect(() => {
+        if (!loading && (!user || user.role !== 'admin')) {
+            router.push('/login');
+        }
+    }, [user, loading, router]);
 
     // Fetch enrollments on component mount
-    // useEffect(() => {
-    //     if (user?.role === 'admin') {
-    //         fetchEnrollments();
-    //     }
-    // }, [user]);
+    useEffect(() => {
+        if (user?.role === 'admin') {
+            fetchEnrollments();
+        }
+    }, [user]);
 
     // Filter enrollments when enrollments, filter, or search changes
     useEffect(() => {
@@ -81,17 +81,18 @@ export default function AdminEnrollmentsPage() {
             setLoadingEnrollments(true);
             setError('');
             
+            const token = localStorage.getItem('token');
             const response = await fetch('/api/admin/enrollments', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-                }
+                headers: token ? {
+                    'Authorization': `Bearer ${token}`
+                } : {}
             });
             
-            const data = await response.json();
-
             if (!response.ok) {
-                throw new Error(data.message || 'Failed to fetch enrollments');
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            const data = await response.json();
 
             if (data.success) {
                 setEnrollments(data.enrollments || []);
@@ -135,22 +136,42 @@ export default function AdminEnrollmentsPage() {
         setError('');
 
         try {
+            const token = localStorage.getItem('token');
             const response = await fetch(`/api/admin/enrollments/${enrollmentId}/process`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                    ...(token && { 'Authorization': `Bearer ${token}` })
                 },
                 body: JSON.stringify({
                     action: action,
-                    adminNotes: notes.trim()
+                    adminNotes: notes.trim(),
+                    processedBy: user?.email || 'admin'
                 })
             });
 
-            const data = await response.json();
-
+            // First check if response is OK
             if (!response.ok) {
-                throw new Error(data.message || `Failed to ${action} enrollment`);
+                const errorText = await response.text();
+                let errorMessage = `HTTP error! status: ${response.status}`;
+                
+                try {
+                    const errorData = JSON.parse(errorText);
+                    errorMessage = errorData.message || errorMessage;
+                } catch {
+                    // If not JSON, use the text
+                    errorMessage = errorText || errorMessage;
+                }
+                
+                throw new Error(errorMessage);
+            }
+
+            // Try to parse JSON
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                throw new Error('Invalid JSON response from server');
             }
 
             if (data.success) {
@@ -162,7 +183,7 @@ export default function AdminEnrollmentsPage() {
                             status: action === 'approve' ? 'approved' : 'rejected',
                             adminNotes: notes || null,
                             reviewedAt: new Date().toISOString(),
-                            reviewedBy: user?.id || user?.email
+                            reviewedBy: user?.email || 'admin'
                         };
                     }
                     return enrollment;
@@ -171,12 +192,16 @@ export default function AdminEnrollmentsPage() {
                 // Update stats
                 setStats(prev => {
                     const newStats = { ...prev };
-                    if (action === 'approve') {
-                        newStats.approved += 1;
-                        newStats.pending -= 1;
-                    } else {
-                        newStats.rejected += 1;
-                        newStats.pending -= 1;
+                    const enrollment = enrollments.find(e => e._id === enrollmentId);
+                    
+                    if (enrollment && enrollment.status === 'pending') {
+                        if (action === 'approve') {
+                            newStats.approved += 1;
+                            newStats.pending -= 1;
+                        } else if (action === 'reject') {
+                            newStats.rejected += 1;
+                            newStats.pending -= 1;
+                        }
                     }
                     return newStats;
                 });

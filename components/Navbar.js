@@ -24,7 +24,7 @@ const Navbar = () => {
   // Logged-in user navigation items (visible only when user is logged in)
   const userNavigation = [
     { name: 'Dashboard', href: '/dashboard' },
-    { name: 'My Classes', href: '/student' },
+    // { name: 'My Classes', href: '/student' },
     { name: 'Enrollments', href: '/enrollments' },
     // { name: 'My Courses', href: '/my-courses' },
     // { name: 'Progress', href: '/progress' },
@@ -33,10 +33,10 @@ const Navbar = () => {
 
   // Admin navigation items (if you have admin role)
   const adminNavigation = [
-    { name: 'Admin Panel', href: '/admin' },
-    { name: 'Manage Courses', href: '/admin/courses' },
-    { name: 'Users', href: '/admin/users' },
-    { name: 'Analytics', href: '/admin/analytics' },
+    // { name: 'Admin Panel', href: '/admin' },
+    { name: 'Manage Courses', href: '/courses' },
+    { name: 'Users', href: '/users' },
+    // { name: 'Analytics', href: '/admin/analytics' },
   ];
 
   // Combine navigation based on user status

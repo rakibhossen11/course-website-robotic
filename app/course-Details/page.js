@@ -1,3 +1,4 @@
+import AccordionQnA from "@/components/AccordionQnA";
 import BannerSection from "@/components/BannerSection";
 // import CourseHighlights from '@/components/CourseHighlights';
 // import InstructorInfo from '@/components/InstructorInfo';
@@ -16,8 +17,9 @@ export default function CourseDetailPage() {
       <BannerSection />
       {/* <CourseHighlights />
       <InstructorInfo /> */}
-      <CustomerReviews />
-      <FAQSection />
+      {/* <CustomerReviews /> */}
+      {/* <FAQSection /> */}
+      <AccordionQnA />
       {/* <CallToAction /> */}
     </div>
   );

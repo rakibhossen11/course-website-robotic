@@ -1,57 +1,86 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog } from '@headlessui/react';
-import { Bars3Icon, XMarkIcon, MagnifyingGlassIcon, UserCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
-import { useAuth } from '@/components/AuthContext'; // Adjust path as needed
+import { 
+  Bars3Icon, 
+  XMarkIcon, 
+  MagnifyingGlassIcon, 
+  UserCircleIcon, 
+  ChevronDownIcon,
+  HomeIcon,
+  BookOpenIcon,
+  ChartBarIcon,
+  Cog6ToothIcon,
+  ArrowRightOnRectangleIcon,
+  BellIcon,
+  AcademicCapIcon,
+  UsersIcon,
+  PresentationChartLineIcon
+} from '@heroicons/react/24/outline';
+import { useAuth } from '@/components/AuthContext';
 import Image from 'next/image';
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { user, logout, loading } = useAuth();
+  const dropdownRef = useRef(null);
 
-  // Public navigation items (visible to everyone)
-  const publicNavigation = [
-    // { name: 'Home', href: '/' },
-    { name: 'Course-Details', href: '/course-Details' },
-    // { name: 'Pricing', href: '/pricing' },
-    // { name: 'About Us', href: '/about' },
-    // { name: 'Contact', href: '/contact' },
-  ];
+  // Handle scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-  // Logged-in user navigation items (visible only when user is logged in)
-  const userNavigation = [
-    { name: 'Dashboard', href: '/dashboard' },
-    // { name: 'My Classes', href: '/student' },
-    { name: 'Enrollments', href: '/enrollments' },
-    // { name: 'My Courses', href: '/my-courses' },
-    // { name: 'Progress', href: '/progress' },
-    // { name: 'Assignments', href: '/assignments' },
-  ];
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  // Admin navigation items (if you have admin role)
-  const adminNavigation = [
-    // { name: 'Admin Panel', href: '/admin' },
-    { name: 'Manage Courses', href: '/courses' },
-    { name: 'Users', href: '/users' },
-    // { name: 'Analytics', href: '/admin/analytics' },
-  ];
+  // Navigation configuration
+  const navigation = {
+    public: [
+      { name: 'Home', href: '/', icon: HomeIcon },
+      { name: 'Courses', href: '/courses', icon: BookOpenIcon },
+      { name: 'Pricing', href: '/pricing', icon: ChartBarIcon },
+      { name: 'About Us', href: '/about', icon: UsersIcon },
+    ],
+    user: [
+      { name: 'Dashboard', href: '/dashboard', icon: PresentationChartLineIcon },
+      { name: 'My Courses', href: '/my-courses', icon: BookOpenIcon },
+      { name: 'Progress', href: '/progress', icon: ChartBarIcon },
+      { name: 'Assignments', href: '/assignments', icon: AcademicCapIcon },
+    ],
+    admin: [
+      { name: 'Admin Panel', href: '/admin', icon: Cog6ToothIcon },
+      { name: 'Manage Courses', href: '/courses', icon: BookOpenIcon },
+      { name: 'Users', href: '/users', icon: UsersIcon },
+      { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
+    ]
+  };
 
-  // Combine navigation based on user status
   const getNavigationItems = () => {
     if (user) {
-      // Check if user is admin
       const isAdmin = user.role === 'admin' || user.isAdmin;
-      
       return [
-        ...publicNavigation,
-        ...userNavigation,
-        ...(isAdmin ? adminNavigation : [])
+        ...navigation.public,
+        ...navigation.user,
+        ...(isAdmin ? navigation.admin : [])
       ];
     }
-    return publicNavigation;
+    return navigation.public;
   };
 
   const handleLogout = async () => {
@@ -59,22 +88,24 @@ const Navbar = () => {
     setUserDropdownOpen(false);
   };
 
-  // Check if user is admin
   const isAdmin = user && (user.role === 'admin' || user.isAdmin);
 
-  // Show loading state briefly
   if (loading) {
     return (
       <>
-        <nav className="fixed top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
+        <nav className="fixed top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
-              <div className="flex-shrink-0">
-                <Link href="/" className="text-xl font-bold text-gray-900">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg animate-pulse" />
+                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   LearningBD
-                </Link>
+                </span>
               </div>
-              <div className="text-sm text-gray-500">Loading...</div>
+              <div className="flex items-center space-x-4">
+                <div className="h-8 w-20 bg-gray-200 rounded-md animate-pulse" />
+                <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
+              </div>
             </div>
           </div>
         </nav>
@@ -85,331 +116,380 @@ const Navbar = () => {
 
   return (
     <>
-      {/* Fixed Navbar */}
-      <nav className="fixed top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
+      <nav className={`fixed top-0 z-50 w-full transition-all duration-300 ${
+        scrolled 
+          ? 'bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-lg' 
+          : 'bg-white border-b border-gray-100'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex-shrink-0">
-              <Link href="/" className="text-xl font-bold text-gray-900">
-                LearningBD
+            {/* Logo Section */}
+            <div className="flex items-center space-x-3">
+              <Link href="/" className="flex items-center space-x-3 group">
+                <div className="relative w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                  <AcademicCapIcon className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    LearningBD
+                  </h1>
+                  <p className="text-xs text-gray-500 -mt-1">Learn. Grow. Succeed</p>
+                </div>
               </Link>
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <div className="flex space-x-8">
-                {getNavigationItems().map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className="text-black hover:text-blue-600 font-bold transition-colors duration-200"
-                  >
-                    {item.name}
-                  </Link>
-                ))}
-              </div>
+            <div className="hidden lg:flex items-center space-x-1">
+              {getNavigationItems().map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 rounded-lg hover:bg-gray-50 transition-all duration-200 group"
+                >
+                  <item.icon className="w-4 h-4 opacity-60 group-hover:opacity-100" />
+                  <span>{item.name}</span>
+                </Link>
+              ))}
+            </div>
 
-              {/* Search Icon */}
+            {/* Right Side Actions */}
+            <div className="hidden lg:flex items-center space-x-4">
+              {/* Search Button */}
               <button className="p-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors">
                 <MagnifyingGlassIcon className="h-5 w-5" />
-                <span className="sr-only">Search</span>
               </button>
 
-              {/* User Profile or Auth Buttons */}
+              {/* Notifications */}
+              {user && (
+                <button className="p-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors relative">
+                  <BellIcon className="h-5 w-5" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                </button>
+              )}
+
+              {/* User Profile */}
               {user ? (
-                <div className="relative">
+                <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none"
+                    className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
                   >
-                    {user.photoURL ? (
-                      <div className="relative h-8 w-8 rounded-full overflow-hidden border border-gray-300">
-                        <Image
-                          src={user.photoURL}
-                          alt={user.displayName || 'User'}
-                          fill
-                          sizes="32px"
-                          className="object-cover"
-                        />
+                    <div className="flex items-center space-x-3">
+                      {user.photoURL ? (
+                        <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-sm">
+                          <Image
+                            src={user.photoURL}
+                            alt={user.displayName || 'User'}
+                            fill
+                            sizes="32px"
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                          <UserCircleIcon className="w-5 h-5 text-white" />
+                        </div>
+                      )}
+                      <div className="text-left">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {user.displayName?.split(' ')[0] || 'User'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {isAdmin ? 'Admin' : 'Student'}
+                        </p>
                       </div>
-                    ) : (
-                      <UserCircleIcon className="h-8 w-8 text-gray-400" />
-                    )}
-                    <span className="hidden lg:inline">
-                      {user.displayName ? user.displayName.split(' ')[0] : user.email}
-                    </span>
-                    <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+                    </div>
+                    <ChevronDownIcon className={`h-4 w-4 text-gray-500 transition-transform ${
+                      userDropdownOpen ? 'rotate-180' : ''
+                    }`} />
                   </button>
 
                   {/* User Dropdown Menu */}
                   {userDropdownOpen && (
-                    <>
-                      {/* Backdrop */}
-                      <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setUserDropdownOpen(false)}
-                      />
-                      
-                      {/* Dropdown */}
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50 py-1">
-                        <div className="px-4 py-2 border-b border-gray-100">
-                          <div className="flex items-center">
-                            {user.photoURL ? (
-                              <div className="relative h-8 w-8 rounded-full overflow-hidden border border-gray-300 mr-2">
-                                <Image
-                                  src={user.photoURL}
-                                  alt={user.displayName || 'User'}
-                                  width={32}
-                                  height={32}
-                                  className="object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <UserCircleIcon className="h-8 w-8 text-gray-400 mr-2" />
-                            )}
-                            <div>
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {user.displayName || 'User'}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                              {isAdmin && (
-                                <span className="text-xs text-red-600 font-semibold">Admin</span>
-                              )}
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
+                      {/* User Info */}
+                      <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-100">
+                        <div className="flex items-center space-x-3">
+                          {user.photoURL ? (
+                            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md">
+                              <Image
+                                src={user.photoURL}
+                                alt={user.displayName || 'User'}
+                                width={48}
+                                height={48}
+                                className="object-cover"
+                              />
                             </div>
+                          ) : (
+                            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                              <UserCircleIcon className="w-6 h-6 text-white" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              {user.displayName || 'User'}
+                            </p>
+                            <p className="text-sm text-gray-600 truncate">{user.email}</p>
+                            {isAdmin && (
+                              <span className="inline-block mt-1 px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                                Admin
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <Link
-                          href="/dashboard"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          onClick={() => setUserDropdownOpen(false)}
-                        >
-                          Dashboard
-                        </Link>
-                        <Link
-                          href="/profile"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          onClick={() => setUserDropdownOpen(false)}
-                        >
-                          Profile Settings
-                        </Link>
-                        <Link
-                          href="/my-courses"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          onClick={() => setUserDropdownOpen(false)}
-                        >
-                          My Courses
-                        </Link>
-                        {isAdmin && (
+                      </div>
+
+                      {/* Quick Links */}
+                      <div className="p-2">
+                        {navigation.user.map((item) => (
                           <Link
-                            href="/admin"
-                            className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 border-t border-gray-100"
+                            key={item.name}
+                            href={item.href}
+                            className="flex items-center space-x-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
                             onClick={() => setUserDropdownOpen(false)}
                           >
-                            Admin Panel
+                            <item.icon className="w-4 h-4" />
+                            <span>{item.name}</span>
                           </Link>
-                        )}
+                        ))}
+                      </div>
+
+                      {/* Admin Section */}
+                      {isAdmin && (
+                        <div className="border-t border-gray-100 p-2">
+                          <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Admin Tools
+                          </div>
+                          {navigation.admin.map((item) => (
+                            <Link
+                              key={item.name}
+                              href={item.href}
+                              className="flex items-center space-x-3 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              onClick={() => setUserDropdownOpen(false)}
+                            >
+                              <item.icon className="w-4 h-4" />
+                              <span>{item.name}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Settings & Logout */}
+                      <div className="border-t border-gray-100 p-2">
+                        <Link
+                          href="/profile"
+                          className="flex items-center space-x-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                          onClick={() => setUserDropdownOpen(false)}
+                        >
+                          <Cog6ToothIcon className="w-4 h-4" />
+                          <span>Settings</span>
+                        </Link>
                         <button
                           onClick={handleLogout}
-                          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 border-t border-gray-100"
+                          className="flex items-center space-x-3 w-full px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
-                          Sign Out
+                          <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                          <span>Logout</span>
                         </button>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               ) : (
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-3">
                   <Link
                     href="/login"
-                    className="text-sm font-medium text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors"
+                    className="text-sm font-medium text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    Login
+                    Sign In
                   </Link>
                   <Link
                     href="/signup"
-                    className="text-sm font-medium text-white bg-blue-600 px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                    className="text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 px-5 py-2.5 rounded-lg hover:shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-md"
                   >
-                    Sign Up
+                    Get Started Free
                   </Link>
                 </div>
               )}
             </div>
 
-            {/* Mobile menu button */}
-            <div className="md:hidden flex items-center">
-              {user ? (
-                <div className="flex items-center space-x-2 mr-4">
-                  {user.photoURL ? (
-                    <div className="relative h-8 w-8 rounded-full overflow-hidden border border-gray-300">
-                      <Image
-                        src={user.photoURL}
-                        alt={user.displayName || 'User'}
-                        width={32}
-                        height={32}
-                        className="object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <UserCircleIcon className="h-8 w-8 text-gray-400" />
-                  )}
-                </div>
-              ) : null}
+            {/* Mobile Menu Button */}
+            <div className="flex lg:hidden items-center space-x-3">
+              {user && (
+                <button className="p-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors relative">
+                  <BellIcon className="h-5 w-5" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                </button>
+              )}
               <button
-                type="button"
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:bg-gray-100"
                 onClick={() => setMobileMenuOpen(true)}
+                className="p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                <span className="sr-only">Open main menu</span>
-                <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+                <Bars3Icon className="h-6 w-6" />
               </button>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Mobile Menu Drawer */}
-      <Dialog as="div" className="md:hidden" open={mobileMenuOpen} onClose={setMobileMenuOpen}>
-        <div className="fixed inset-0 z-50" />
-        <Dialog.Panel className="fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-white shadow-lg">
-          <div className="flex items-center justify-between h-16 px-4">
-            <Link href="/" className="text-xl font-bold text-gray-900">
-              LearningBD
-            </Link>
-            <button
-              type="button"
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:bg-gray-100"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <span className="sr-only">Close menu</span>
-              <XMarkIcon className="h-6 w-6" aria-hidden="true" />
-            </button>
-          </div>
-          
-          <div className="mt-6 px-4 pt-4 pb-3 space-y-4">
-            {/* User Info in Mobile Menu */}
+      {/* Mobile Menu */}
+      <Dialog as="div" className="lg:hidden" open={mobileMenuOpen} onClose={setMobileMenuOpen}>
+        <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" />
+        <Dialog.Panel className="fixed inset-y-0 right-0 z-50 w-full max-w-xs bg-white shadow-2xl">
+          <div className="flex flex-col h-full">
+            {/* Mobile Header */}
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <Link href="/" className="flex items-center space-x-3" onClick={() => setMobileMenuOpen(false)}>
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <AcademicCapIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-bold text-gray-900">LearningBD</h1>
+                    <p className="text-xs text-gray-500">Learn. Grow. Succeed</p>
+                  </div>
+                </Link>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* User Info */}
             {user && (
-              <div className="pb-3 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
+              <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-100">
+                <div className="flex items-center space-x-4">
                   {user.photoURL ? (
-                    <div className="relative h-10 w-10 rounded-full overflow-hidden border border-gray-300">
+                    <div className="relative w-14 h-14 rounded-full overflow-hidden border-4 border-white shadow-md">
                       <Image
                         src={user.photoURL}
                         alt={user.displayName || 'User'}
-                        width={40}
-                        height={40}
+                        width={56}
+                        height={56}
                         className="object-cover"
                       />
                     </div>
                   ) : (
-                    <UserCircleIcon className="h-10 w-10 text-gray-400" />
+                    <div className="w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                      <UserCircleIcon className="w-8 h-8 text-white" />
+                    </div>
                   )}
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">
                       {user.displayName || 'User'}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                    <p className="text-sm text-gray-600 truncate">{user.email}</p>
                     {isAdmin && (
-                      <span className="text-xs text-red-600 font-semibold">Admin</span>
+                      <span className="inline-block mt-1 px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                        Admin
+                      </span>
                     )}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Public Navigation Links */}
-            {publicNavigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="block text-base font-medium text-gray-700 hover:text-blue-600 py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {item.name}
-              </Link>
-            ))}
-
-            {/* User-specific Navigation Links */}
-            {user && (
-              <>
-                <div className="pt-4 border-t border-gray-200">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    My Account
-                  </h3>
-                  {userNavigation.map((item) => (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className="block text-base font-medium text-gray-700 hover:text-blue-600 py-2"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      {item.name}
-                    </Link>
-                  ))}
+            {/* Navigation Links */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                  Menu
                 </div>
-              </>
-            )}
-
-            {/* Admin Navigation Links */}
-            {isAdmin && (
-              <div className="pt-4 border-t border-gray-200">
-                <h3 className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2">
-                  Admin
-                </h3>
-                {adminNavigation.map((item) => (
+                {navigation.public.map((item) => (
                   <Link
                     key={item.name}
                     href={item.href}
-                    className="block text-base font-medium text-red-600 hover:text-red-700 py-2"
+                    className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-xl transition-colors"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    {item.name}
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.name}</span>
                   </Link>
                 ))}
               </div>
-            )}
 
-            <div className="pt-4 border-t border-gray-200">
-              <button className="w-full flex items-center justify-center p-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-100 mb-2">
-                <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
-                Search
-              </button>
-              
+              {/* User Navigation */}
+              {user && (
+                <div className="mt-8 space-y-2">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                    My Account
+                  </div>
+                  {navigation.user.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-xl transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <span className="font-medium">{item.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {/* Admin Navigation */}
+              {isAdmin && (
+                <div className="mt-8 space-y-2">
+                  <div className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-4">
+                    Admin Tools
+                  </div>
+                  {navigation.admin.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className="flex items-center space-x-3 px-4 py-3 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <span className="font-medium">{item.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="p-6 border-t border-gray-100 space-y-3">
               {user ? (
                 <>
                   <Link
                     href="/profile"
-                    className="block w-full text-left text-base font-medium text-gray-700 px-4 py-2 hover:bg-gray-50 rounded-md mb-2"
+                    className="flex items-center justify-center space-x-2 px-4 py-3 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    Profile Settings
+                    <Cog6ToothIcon className="w-5 h-5" />
+                    <span>Settings</span>
                   </Link>
                   <button
                     onClick={() => {
                       handleLogout();
                       setMobileMenuOpen(false);
                     }}
-                    className="block w-full text-left text-base font-medium text-red-600 px-4 py-2 hover:bg-gray-50 rounded-md"
+                    className="flex items-center justify-center space-x-2 w-full px-4 py-3 text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
                   >
-                    Sign Out
+                    <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                    <span>Logout</span>
                   </button>
                 </>
               ) : (
                 <>
                   <Link
                     href="/login"
-                    className="block w-full text-left text-base font-medium text-gray-700 px-4 py-2 hover:bg-gray-50 rounded-md mb-2"
+                    className="flex items-center justify-center px-4 py-3 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    Login
+                    Sign In
                   </Link>
                   <Link
                     href="/signup"
-                    className="block w-full text-left text-base font-medium text-white bg-blue-600 px-4 py-2 rounded-md hover:bg-blue-700"
+                    className="flex items-center justify-center px-4 py-3 text-white bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl hover:shadow-lg transition-all"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    Sign Up
+                    Start Learning Free
                   </Link>
                 </>
               )}
@@ -418,7 +498,7 @@ const Navbar = () => {
         </Dialog.Panel>
       </Dialog>
 
-      {/* Spacer for fixed navbar */}
+      {/* Spacer */}
       <div className="h-16" />
     </>
   );

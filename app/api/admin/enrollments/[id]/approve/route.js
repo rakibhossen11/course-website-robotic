@@ -1,4 +1,4 @@
-import connectToDatabase from '@/lib/mongoose';
+import { connectToDatabase } from '@/lib/mongodb';
 import Enrollment from '@/models/Enrollment';
 import UserCourseAccess from '@/models/UserCourseAccess';
 

@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
-export default function EnrollmentStatusContent() {
+export default function EnrollmentStatusPage() {
     const searchParams = useSearchParams();
     const status = searchParams.get('status');
     const enrollmentId = searchParams.get('enrollmentId');

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/mongodb';
 import User from '@/models/User';
 import Course from '@/models/Course';
 import { adminAuth } from '@/lib/firebase-admin';
@@ -27,7 +27,7 @@ export async function POST(request) {
       );
     }
     
-    await connectDB();
+    await connectToDatabase();
     
     // Check if course exists
     const course = await Course.findById(courseId);
@@ -108,7 +108,7 @@ export async function GET(request) {
       }
     }
     
-    await connectDB();
+    await connectToDatabase();
     
     const user = await User.findOne({ uid }).populate({
       path: 'enrolledCourses.courseId',

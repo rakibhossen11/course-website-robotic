@@ -4,6 +4,7 @@ import BannerSection from "@/components/BannerSection";
 // import InstructorInfo from '@/components/InstructorInfo';
 import CustomerReviews from '@/components/CustomerReviews';
 import FAQSection from '@/components/FAQSection';
+import PreEnrollmentSection from "@/components/PreEnrollmentSection";
 // import CallToAction from '@/components/CallToAction';
 
 export const metadata = {
@@ -15,6 +16,7 @@ export default function CourseDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <BannerSection />
+      <PreEnrollmentSection />
       {/* <CourseHighlights />
       <InstructorInfo /> */}
       {/* <CustomerReviews /> */}

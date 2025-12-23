@@ -52,22 +52,23 @@ const Navbar = () => {
   // Navigation configuration
   const navigation = {
     public: [
-      { name: 'Home', href: '/', icon: HomeIcon },
-      { name: 'Courses', href: '/courses', icon: BookOpenIcon },
-      { name: 'Pricing', href: '/pricing', icon: ChartBarIcon },
-      { name: 'About Us', href: '/about', icon: UsersIcon },
+      // { name: 'Home', href: '/course-Details', icon: HomeIcon },
+      // { name: 'Courses', href: '/courses', icon: BookOpenIcon },
+      // { name: 'Pricing', href: '/pricing', icon: ChartBarIcon },
+      // { name: 'About Us', href: '/about', icon: UsersIcon },
     ],
     user: [
+      { name: 'Home', href: '/course-Details', icon: HomeIcon },
       { name: 'Dashboard', href: '/dashboard', icon: PresentationChartLineIcon },
-      { name: 'My Courses', href: '/my-courses', icon: BookOpenIcon },
-      { name: 'Progress', href: '/progress', icon: ChartBarIcon },
-      { name: 'Assignments', href: '/assignments', icon: AcademicCapIcon },
+      // { name: 'My Courses', href: '/my-courses', icon: BookOpenIcon },
+      // { name: 'Progress', href: '/progress', icon: ChartBarIcon },
+      // { name: 'Assignments', href: '/assignments', icon: AcademicCapIcon },
     ],
     admin: [
-      { name: 'Admin Panel', href: '/admin', icon: Cog6ToothIcon },
+      // { name: 'Admin Panel', href: '/admin', icon: Cog6ToothIcon },
       { name: 'Manage Courses', href: '/courses', icon: BookOpenIcon },
-      { name: 'Users', href: '/users', icon: UsersIcon },
-      { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
+      // { name: 'Users', href: '/users', icon: UsersIcon },
+      // { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
     ]
   };
 
@@ -125,7 +126,7 @@ const Navbar = () => {
           <div className="flex justify-between items-center h-16">
             {/* Logo Section */}
             <div className="flex items-center space-x-3">
-              <Link href="/" className="flex items-center space-x-3 group">
+              <Link href="/course-Details" className="flex items-center space-x-3 group">
                 <div className="relative w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
                   <AcademicCapIcon className="w-6 h-6 text-white" />
                 </div>

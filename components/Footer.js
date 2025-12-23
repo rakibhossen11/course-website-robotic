@@ -230,7 +230,7 @@ export default function Footer() {
                         <div className="w-full h-1 bg-gray-800 mt-2 rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
-                            style={{ width: `${Math.random() * 40 + 60}%` }}
+                            // style={{ width: `${Math.random() * 40 + 60}%` }}
                           />
                         </div>
                       </Link>

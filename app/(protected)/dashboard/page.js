@@ -15,6 +15,7 @@ import Link from 'next/link';
 export default function UserDashboard() {
   const { user } = useAuth();
   const [enrollments, setEnrollments] = useState([]);
+  // console.log(enrollments);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalEnrolled: 0,
@@ -238,7 +239,7 @@ export default function UserDashboard() {
                           .filter(e => e.status === 'pending')
                           .map((enrollment) => (
                             <div
-                              key={enrollment._id}
+                              key={enrollment.enrollmentId}
                               className="border border-yellow-200 rounded-lg p-4 bg-yellow-50"
                             >
                               <div className="flex justify-between items-start">
@@ -269,7 +270,7 @@ export default function UserDashboard() {
                           .filter(e => e.status === 'rejected')
                           .map((enrollment) => (
                             <div
-                              key={enrollment._id}
+                              key={enrollment.enrollmentId}
                               className="border border-red-200 rounded-lg p-4 bg-red-50"
                             >
                               <div className="flex justify-between items-start">
